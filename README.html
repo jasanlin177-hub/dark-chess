@@ -21,6 +21,7 @@
   <h1>暗棋</h1>
   <p>單一網頁檔的暗棋遊戲。用瀏覽器（電腦或手機都可以）打開 <code>暗棋.html</code> 就能玩，不用安裝、不用網路。</p>
   <p><a class="play" href="暗棋.html">開始玩</a></p>
+  <p>線上直接玩：<a href="https://jasanlin177-hub.github.io/dark-chess/">https://jasanlin177-hub.github.io/dark-chess/</a>（手機、電腦點開就能玩，分享給別人傳這個網址就好）</p>
 
   <h2>功能</h2>
   <ul>
@@ -105,6 +106,8 @@ design-demos/               三個設計方向的原型與截圖（凍結的設�
     <li>電腦的難度設定在 <code>src/engine.js</code> 的 <code>LEVELS</code>，棋子價值在 <code>VALUE</code></li>
     <li>立體棋子的顏色、描邊、燈光在 <code>src/app.js</code> 的 <code>theme3d</code>；黑棋的描邊與輪廓光是為了避免「黑成一團看不清造型」，調整時要保留</li>
     <li>要更新 Three.js：下載新的 <code>three.module.min.js</code> 放進 <code>vendor/</code>，執行 <code>node tools/build-three-global.js</code>，再建置</li>
+    <li><b>線上版更新</b>：網站由 GitHub Pages 直接發布 <code>main</code> 分支。改完照常建置、commit 後執行 <code>git push</code>，約 1 分鐘後網址就是新版</li>
+    <li>本專案的 commit 使用 GitHub 隱私信箱（只設定在這個專案），避免個人 Gmail 公開</li>
     <li>截圖與壓力測試在網址後面加 <code>?debug</code> 才能操作，例如：
       <pre>python tools/shot.py "暗棋.html?debug" out.png 1440 900 1500 desktop "&lt;要執行的 JS&gt;"</pre>
     </li>

@@ -2,6 +2,8 @@
 
 單一網頁檔的暗棋遊戲。用瀏覽器（電腦或手機都可以）打開 `暗棋.html` 就能玩，不用安裝、不用網路。
 
+**線上直接玩：<https://jasanlin177-hub.github.io/dark-chess/>**（手機、電腦點開就能玩，分享給別人傳這個網址就好）
+
 ## 功能
 
 - **一人對電腦**：分成簡單、普通、困難三種難度，可以選擇自己先下、電腦先下，或是隨機決定
@@ -92,6 +94,8 @@ design-demos/               三個設計方向的原型與截圖（凍結的設�
 - 電腦的難度設定在 `src/engine.js` 的 `LEVELS`，棋子價值在 `VALUE`
 - 立體棋子的顏色、描邊、燈光在 `src/app.js` 的 `theme3d`；黑棋的描邊與輪廓光是為了避免「黑成一團看不清造型」，調整時要保留
 - 要更新 Three.js：下載新的 `three.module.min.js` 放進 `vendor/`，執行 `node tools/build-three-global.js`，再建置
+- **線上版更新**：網站由 GitHub Pages 直接發布 `main` 分支。改完照常建置、commit 後執行 `git push`，約 1 分鐘後網址就是新版
+- 本專案的 commit 使用 GitHub 隱私信箱（只設定在這個專案），避免個人 Gmail 公開
 - 截圖與壓力測試在網址後面加 `?debug` 才能操作，例如：
 
   ```
