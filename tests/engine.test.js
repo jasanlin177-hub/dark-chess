@@ -85,13 +85,17 @@ test('俥直線走多格、被擋住就停', () => {
   const t = targetsOf(s, sq(0, 0));
   assert.deepStrictEqual(t, ['move:1', 'move:2', 'move:8', 'move:16', 'move:24'].sort());
 });
-test('俥可以衝過去吃路上第一顆對方棋（大小照舊）', () => {
+test('俥不能遠距吃，只能吃緊鄰的對方棋（大小照舊）', () => {
   const s = pos([[0, 0, red(R)], [0, 5, black(H)], [0, 7, black(P)], [3, 0, black(A)]]);
   const t = targetsOf(s, sq(0, 0));
-  assert.ok(t.includes('cap:' + sq(0, 5)), '應能遠距吃馬');
+  assert.ok(!t.includes('cap:' + sq(0, 5)), '不能遠距吃馬');
+  assert.ok(t.includes('move:' + sq(0, 4)) && !t.includes('move:' + sq(0, 5)), '走到馬前一格為止');
   assert.ok(!t.includes('cap:' + sq(0, 7)), '不能越過馬吃卒');
-  assert.ok(!t.includes('cap:' + sq(3, 0)), '俥不能吃士');
-  assert.ok(t.includes('move:' + sq(2, 0)) && !t.includes('move:' + sq(3, 0)));
+  assert.ok(!t.some(x => x.startsWith('cap:')), '這個盤面不應有任何吃子');
+  const s2 = pos([[1, 1, red(R)], [1, 2, black(H)], [0, 1, black(A)], [3, 7, black(P)]]);
+  const t2 = targetsOf(s2, sq(1, 1));
+  assert.ok(t2.includes('cap:' + sq(1, 2)), '緊鄰的馬可以吃');
+  assert.ok(!t2.includes('cap:' + sq(0, 1)), '緊鄰的士不能吃');
 });
 
 console.log('【翻棋、勝負、和局】');
@@ -125,10 +129,10 @@ test('無棋可走就輸', () => {
   assert.deepStrictEqual(s.result, { winner: 0, loser: 1, reason: 'stalemate' });
 });
 test('連續 50 步沒吃子判和局；吃子會歸零', () => {
-  const s0 = pos([[0, 0, red(R)], [3, 7, black(R)], [3, 0, black(P)]], { noCap: 49 });
+  const s0 = pos([[0, 0, red(R)], [3, 7, black(R)], [1, 0, black(P)]], { noCap: 49 });
   const s = E.applyAction(s0, { type: 'move', from: 0, to: 1 });
   assert.deepStrictEqual(s.result, { winner: -1, loser: -1, reason: 'draw' });
-  const s2 = E.applyAction(s0, { type: 'cap', from: 0, to: sq(3, 0) });
+  const s2 = E.applyAction(s0, { type: 'cap', from: 0, to: sq(1, 0) });
   assert.strictEqual(s2.noCap, 0);
   assert.strictEqual(s2.result, null);
 });

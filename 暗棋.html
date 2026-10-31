@@ -274,7 +274,7 @@
     <h3>走法</h3>
     <ul>
       <li>一般棋子：上下左右走一格，可以吃隔壁比自己小或同級的對方棋子。</li>
-      <li><b>俥車</b>：可以直線走多格，中間不能有棋子擋著；路上碰到的第一顆棋如果是對方、而且俥能吃（俥、傌、炮、兵），可以直接衝過去吃掉。</li>
+      <li><b>俥車</b>：可以直線走多格，中間不能有棋子擋著；吃子只能吃緊鄰的對方棋（俥、傌、炮、兵），不能衝過去遠距吃。</li>
       <li><b>炮包</b>：平常上下左右走一格（不能用走的吃子）；吃子時要隔一顆棋（蓋著的也算）跳過去，可以吃任何棋子，包括帥將。</li>
       <li><b>炮包連吃</b>：吃完一顆後，如果<b>同一方向</b>還能再跳吃，可以選擇繼續吃或停下來；不能轉彎換方向。</li>
     </ul>
@@ -406,7 +406,8 @@ var DanqiEngine = (function () {
       } else if (t === ROOK) {
         let m = n;
         while (m >= 0 && cells[m] === EMPTY) { out.push({ from: sq, to: m, seq: null }); m = STEP[m][d]; }
-        if (m >= 0) {
+        // 俥可以走多格，但只能吃緊鄰的對方棋（不能衝過去遠距吃）
+        if (m >= 0 && m === n) {
           const v = cells[m];
           if (isUp(v) && colorOf(v) !== color && canCapture(ROOK, typeOf(v))) out.push({ from: sq, to: m, seq: [m] });
         }
