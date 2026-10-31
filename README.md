@@ -6,8 +6,18 @@
 
 - **一人對電腦**：分成簡單、普通、困難三種難度，可以選擇自己先下、電腦先下，或是隨機決定
 - **兩人輪流**：兩個人用同一台裝置輪流下
+- **平面／立體兩種棋子**（右上角切換）
+  - 平面：米紙方格加實心圓棋子；手機直拿時，棋盤會自動轉成 4 欄 × 8 列
+  - 立體：真 3D，西洋棋造型（帥＝國王、仕＝皇后、相＝主教、俥＝城堡、傌＝騎士、兵＝士兵，炮是自訂的砲台），棋子腰帶和旁邊的小名牌都印中文字；蓋著的棋用罩杯蓋住，翻棋時罩杯掀開；拖曳可旋轉視角，連點兩下回到原位
 - 悔棋（對電腦時，會一次退回到你上一步之前）、連吃時可以選擇停止
-- 翻棋有動畫、合成音效（可以關掉）、會顯示被吃掉的棋子和「連續未吃子」步數
+- 音效全部即時合成，不需要音檔：選棋、翻棋、走棋、吃子（吃到帥、仕有鐘聲）、連吃（越吃音越高）、無效點擊、快和局警示、勝／負／和；可以關掉、調音量
+- 會記住你上次選的平面／立體、音效開關與音量（只存在這台裝置的瀏覽器）
+
+## 畫面設計
+
+採用「方圓」方向（參考田中一光的網格幾何海報）：米紙底、紅／黑／芥黃／鋼藍，直排粗宋體大標，方形棋盤配圓形棋子。這是從三個設計方向的可玩原型中選出來的，選擇過程記在 `design-demos/direction-approved.md`。
+
+字型：有網路時使用 Google Fonts 的思源宋體／黑體；沒有網路時自動改用電腦內建字型（Windows 上是新細明體與微軟正黑體），遊戲功能不受影響。
 
 ## 規則
 
@@ -35,26 +45,53 @@
 
 - 悔棋可以退回翻棋前的狀態，但底牌不會重新洗牌，所以悔棋等於可以先偷看一顆棋
 - 困難模式在一般玩家面前有挑戰性，但沒有到職業高手的程度
+- 立體模式目前只能用滑鼠或觸控操作，不支援鍵盤（平面模式可以用 Tab 鍵與 Enter 操作）
+- 立體模式在手機直向時棋子比較小，看字主要靠小名牌
+- 裝置不支援 WebGL 時，切到立體會出現提醒並自動留在平面模式
 
 ## 專案結構
 
 ```
-暗棋.html             遊戲本體（規則、電腦 AI、畫面全部在這一個檔案）
-tests/load-engine.js  從 暗棋.html 取出規則引擎給測試用
-tests/engine.test.js  規則與電腦 AI 的自動測試
-tests/selfplay.js     電腦各難度互打，檢查強弱是否合理
+暗棋.html                   遊戲成品（由 tools/build.js 自動產生，不要手改）
+src/index.html              版面與樣式
+src/engine.js               規則引擎與電腦 AI（規則的唯一來源）
+src/game.js                 遊戲流程（輪替、電腦、悔棋、音效觸發）＋平面棋盤
+src/board3d.js              立體棋盤（Three.js）
+src/sound.js                合成音效
+src/app.js                  畫面互動（選單、按鈕、設定）
+vendor/three.module.min.js  Three.js r170 原檔（MIT 授權，從 cdn.jsdelivr.net 下載）
+vendor/three.global.js      由 tools/build-three-global.js 轉換，給單一檔案嵌入用
+tools/build.js              建置：組出 暗棋.html，組好先跑規則測試，沒過就不產出
+tools/build-three-global.js 把 Three.js 轉成一般 <script> 可用的版本
+tools/shot.py、play.js、stress.js、reveal-all.js、shots-all.ps1
+                            截圖與壓力測試工具（需要 Python 版 Playwright）
+tests/engine.test.js        規則與電腦 AI 的自動測試
+tests/selfplay.js           電腦各難度互打，檢查強弱是否合理
+design-demos/               三個設計方向的原型與截圖（凍結的設計紀錄，正式程式在 src/）
 ```
-
-規則只寫在 `暗棋.html` 的 `<script id="engine">` 區塊這一個地方。遊戲畫面、背景運算、自動測試用的都是同一份，不會出現兩份規則對不上的情況。
 
 ## 維護注意事項
 
-- 修改規則或電腦 AI 之後，先跑測試（需要先安裝 Node.js）：
+- **改程式一律改 `src/`，改完重新建置**（需要先安裝 Node.js）：
 
   ```
-  node tests/engine.test.js
+  node tools/build.js
+  ```
+
+  建置會先跑規則測試，沒過就中止、不會覆蓋 `暗棋.html`。直接手改 `暗棋.html` 會在下次建置時被蓋掉。
+- 提交時 `src/` 和 `暗棋.html` 要一起 commit，兩者才會是同一個版本
+- 修改規則或電腦 AI 之後，另外跑電腦互打：
+
+  ```
   node tests/selfplay.js 10 0.3
   ```
 
-  `selfplay.js` 的兩個參數分別是「每組下幾局」和「困難每一步想幾秒」。困難每一步縮短成 0.3 秒是為了讓測試跑快一點，實際遊戲裡是 1.8 秒。
-- 電腦的難度設定在 `LEVELS`，棋子價值在 `VALUE`，都在 `<script id="engine">` 區塊裡
+  兩個參數分別是「每組下幾局」和「困難每一步想幾秒」。困難縮短成 0.3 秒是為了讓測試跑快一點，實際遊戲裡是 1.8 秒。
+- 電腦的難度設定在 `src/engine.js` 的 `LEVELS`，棋子價值在 `VALUE`
+- 立體棋子的顏色、描邊、燈光在 `src/app.js` 的 `theme3d`；黑棋的描邊與輪廓光是為了避免「黑成一團看不清造型」，調整時要保留
+- 要更新 Three.js：下載新的 `three.module.min.js` 放進 `vendor/`，執行 `node tools/build-three-global.js`，再建置
+- 截圖與壓力測試在網址後面加 `?debug` 才能操作，例如：
+
+  ```
+  python tools/shot.py "暗棋.html?debug" out.png 1440 900 1500 desktop "<要執行的 JS>"
+  ```

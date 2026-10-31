@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>暗棋 · 方向 D 霧中石台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=LXGW+WenKai+TC:wght@300;400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky1: #F4C0BF; --sky2: #C3A2CC; --sky3: #6E6AA0; --sky4: #3E3B6B;
+    --ink: #2D2A4A;           /* 深靛：亮色天空上的字 */
+    --mist: #FFF7F3;          /* 霧白：暗色天空上的字 */
+    --rose: #C2455C;
+    --line: rgba(45, 42, 74, .35);
+    --latin: "Josefin Sans", "Noto Sans TC", sans-serif;
+    --han: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    --kai: "LXGW WenKai TC", "DFKai-SB", "BiauKai", "Kaiti TC", serif;  /* 標題用楷體，像謎題書上的題字 */
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: var(--han); color: var(--ink); overflow: hidden;
+    background: linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 42%, var(--sky3) 78%, var(--sky4) 100%) fixed;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* 遠景：幾座低矮的霧中島嶼 */
+  .isles { position: fixed; inset: auto 0 0 0; height: 40vh; pointer-events: none; opacity: .5; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  .ghost { border: 1px solid currentColor; background: rgba(255,255,255,.08); border-radius: 999px; padding: 9px 18px; font-size: 15px; letter-spacing: 2px;
+    backdrop-filter: blur(6px); transition: background .2s; }
+  .ghost:hover { background: rgba(255,255,255,.2); }
+  .ghost:disabled { opacity: .35; cursor: default; }
+  .ghost:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  .solid { background: var(--mist); color: var(--ink); border-color: var(--mist); font-weight: 600; }
+  .icon { width: 42px; height: 42px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .icon svg { width: 18px; height: 18px; }
+
+  /* 選單 */
+  /* 選單：背景是一座正在緩慢旋轉的石台（真 3D），文字靠左上，選項是底部一條 */
+  #menu { position: fixed; inset: 0; z-index: 5; }
+  #menuStage { position: absolute; inset: 0; }
+  .menu-ui { position: absolute; inset: clamp(20px, 7vh, 72px) clamp(16px, 6vw, 84px); display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+  .menu-ui > * { pointer-events: auto; }
+  .title { font-family: var(--kai); font-weight: 400; font-size: clamp(64px, 11vw, 132px); line-height: 1; letter-spacing: .25em; margin: 0; color: var(--ink); }
+  .title + p { margin: 14px 0 0; letter-spacing: .3em; font-size: 16px; font-family: var(--kai); }
+  .strip { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 28px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 14px 26px; }
+  .opt { display: grid; gap: 8px; justify-items: start; }
+  .opt > span { font-size: 13px; letter-spacing: .3em; color: var(--mist); }
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pills input { position: absolute; opacity: 0; pointer-events: none; }
+  .pills span { display: block; min-width: 72px; text-align: center; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--mist); color: var(--mist); font-size: 15px; letter-spacing: 2px; background: rgba(255,255,255,.06); }
+  .pills input:checked + span { background: var(--mist); color: var(--ink); font-weight: 500; }
+  .pills input:focus-visible + span { outline: 2px solid var(--mist); outline-offset: 2px; }
+  #bStart { color: var(--ink); font-size: 17px; padding: 12px 40px; letter-spacing: .4em; }
+
+  /* 對局：3D 場景鋪滿全屏，介面浮在上面 */
+  #game { position: fixed; inset: 0; }
+  #stage { position: absolute; inset: 0; container-type: size; display: flex; align-items: center; justify-content: center; padding: 120px 16px 150px; }
+  .hud-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 20px; gap: 12px; z-index: 10; }
+  .who { font-size: 15px; letter-spacing: 2px; display: grid; gap: 4px; min-width: 0; }
+  .who .nm { font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .who .sw { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--ink); }
+  .who .sw.c0 { background: var(--rose); border-color: var(--rose); }
+  .who .sw.c1 { background: var(--ink); }
+  .who .on { font-family: var(--latin); font-size: 13px; letter-spacing: .25em; }
+  .lost { display: flex; gap: 3px; flex-wrap: wrap; max-width: 46vw; }
+  .lost i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.7); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .lost i.c0 { color: var(--rose); } .lost i.c1 { color: var(--ink); }
+  .mark { font-family: var(--kai); font-weight: 400; letter-spacing: .6em; font-size: 20px; margin-left: .6em; text-align: center; }
+  .tools { display: flex; gap: 8px; }
+  .hud-bot { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px max(18px, env(safe-area-inset-bottom)); display: grid; gap: 10px; justify-items: center; color: var(--mist); z-index: 10; }
+  .status { font-size: 17px; letter-spacing: .2em; text-align: center; min-height: 26px; }
+  .status .think { animation: breathe 1.6s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .4; } }
+  .meta { font-family: var(--latin); font-size: 13px; letter-spacing: .25em; opacity: .9; display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+  .meta .warn { color: #FFD9A0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .me { display: flex; gap: 10px; align-items: center; font-size: 15px; letter-spacing: 2px; }
+  .me .lost i { background: rgba(255,255,255,.85); }
+
+  /* 平面模式：同色系俯視 */
+  #stage .db-board { width: min(100cqw, 200cqh); height: auto; aspect-ratio: 2 / 1; --cell: min(12.5cqw, 25cqh);
+    background: #F6DCD6; box-shadow: 0 0 0 10px #EBC6C5, 14px 18px 0 10px #A9839F, 26px 34px 0 10px #7E6894; border-radius: 4px; }
+  #stage .db-board.portrait { width: min(100cqw, 50cqh); aspect-ratio: 1 / 2; --cell: min(25cqw, 12.5cqh); }
+  .db-grid { background-image: linear-gradient(45deg, #EFC9C6 25%, transparent 25%, transparent 75%, #EFC9C6 75%), linear-gradient(45deg, #EFC9C6 25%, transparent 25%, transparent 75%, #EFC9C6 75%);
+    background-size: 25% 50%; background-position: 0 0, 12.5% 25%; }
+  .portrait .db-grid { background-size: 50% 25%; background-position: 0 0, 25% 12.5%; }
+  .db-back { border-radius: 50%; background: radial-gradient(circle at 40% 35%, #DCCDEE, #B8A2DA 70%); box-shadow: 0 calc(var(--cell) * .05) 0 #8F7AB8; }
+  .db-back::after { content: ""; width: 22%; height: 22%; border-radius: 50%; background: #F5EEFB; opacity: .8; }
+  .db-front { border-radius: 50%; background: #FBF3EE; box-shadow: 0 calc(var(--cell) * .05) 0 #C9A9B7; font-family: var(--han); font-weight: 700; font-size: calc(var(--cell) * .42); }
+  .db-piece[data-color="0"] .db-front { color: var(--rose); }
+  .db-piece[data-color="1"] .db-front { color: var(--ink); }
+  .db-cell.last::before { content: ""; position: absolute; inset: 6%; background: rgba(255,255,255,.4); }
+  .db-cell.sel::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 3px #fff, 0 0 24px 6px rgba(255,255,255,.8); }
+  .db-cell.tgt::after { content: ""; position: absolute; inset: 41%; border-radius: 50%; background: var(--ink); opacity: .6; }
+  .db-cell.tgt.cap::after { inset: 3%; opacity: 1; background: transparent; box-shadow: 0 0 0 3px var(--rose); animation: breathe 1s infinite; }
+
+  /* 浮層 */
+  .ov { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+    background: rgba(62, 59, 107, .45); backdrop-filter: blur(10px); color: var(--mist); }
+  .panel { width: min(520px, 100%); max-height: 88dvh; overflow: auto; text-align: center; }
+  .panel h2 { font-family: var(--kai); font-weight: 400; letter-spacing: .5em; font-size: 26px; margin: 0 0 16px .5em; }
+  .panel h3 { font-weight: 500; letter-spacing: .3em; font-size: 15px; margin: 18px 0 6px; }
+  .panel p { line-height: 1.9; font-size: 15px; margin: 4px 0; letter-spacing: 1px; }
+  .panel .set { display: grid; gap: 14px; justify-items: center; margin: 14px 0 20px; font-size: 15px; letter-spacing: 2px; }
+  .panel input[type=range] { width: 220px; accent-color: var(--mist); }
+  .verdict { font-family: var(--kai); font-weight: 400; font-size: clamp(40px, 10vw, 72px); letter-spacing: .4em; margin: 0 0 10px .4em; }
+  .note { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: rgba(45,42,74,.85); color: var(--mist); padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 60; max-width: 92vw; }
+
+  @media (max-width: 640px) {
+    .mark { display: none; }
+    #stage { padding: 110px 12px 190px; }
+    .lost { max-width: 60vw; }
+  }
+</style>
+</head>
+<body>
+<svg class="isles" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+  <path d="M0 330 L140 300 L210 318 L330 280 L420 310 L520 296 L600 322 L720 290 L840 312 L960 284 L1080 306 L1200 296 L1200 400 L0 400Z" fill="#4E4A80" opacity=".55"/>
+  <path d="M0 360 L180 344 L300 360 L460 338 L640 362 L800 340 L1000 358 L1200 342 L1200 400 L0 400Z" fill="#3E3B6B" opacity=".7"/>
+</svg>
+
+<section id="menu">
+  <div id="menuStage" aria-hidden="true"></div>
+  <div class="menu-ui">
+  <div><h1 class="title">暗棋</h1>
+  <p>每一顆棋，都是一個謎</p></div>
+  <div class="strip">
+  <div class="opts">
+    <div class="opt"><span>對 手</span>
+      <div class="pills">
+        <label><input type="radio" name="mode" value="ai" checked><span>電腦</span></label>
+        <label><input type="radio" name="mode" value="pvp"><span>兩人輪流</span></label>
+      </div>
+    </div>
+    <div class="opt" id="oLevel"><span>難 度</span>
+      <div class="pills">
+        <label><input type="radio" name="level" value="easy"><span>簡單</span></label>
+        <label><input type="radio" name="level" value="normal" checked><span>普通</span></label>
+        <label><input type="radio" name="level" value="hard"><span>困難</span></label>
+      </div>
+    </div>
+    <div class="opt" id="oFirst"><span>先 手</span>
+      <div class="pills">
+        <label><input type="radio" name="first" value="human" checked><span>我</span></label>
+        <label><input type="radio" name="first" value="ai"><span>電腦</span></label>
+        <label><input type="radio" name="first" value="random"><span>隨機</span></label>
+      </div>
+    </div>
+  </div>
+  <button class="ghost solid" id="bStart" type="button">開始</button>
+  </div>
+  </div>
+</section>
+
+<section id="game" hidden>
+  <div id="stage"></div>
+  <div class="hud-top">
+    <div class="who" id="pTop"></div>
+    <div class="mark" aria-hidden="true">暗棋</div>
+    <div class="tools">
+      <button class="ghost icon" id="bView" type="button" aria-label="切換平面／立體" title="切換平面／立體">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+      </button>
+      <button class="ghost icon" id="bSet" type="button" aria-label="聲音設定">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>
+      </button>
+      <button class="ghost icon" id="bRules" type="button" aria-label="規則">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17.2v.3"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="hud-bot">
+    <div class="me" id="pBot"></div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+    <div class="meta"><span id="noCap"></span><span id="lvl"></span><span id="hint"></span></div>
+    <div class="row">
+      <button class="ghost solid" id="bStop" type="button" hidden>停止連吃</button>
+      <button class="ghost" id="bUndo" type="button">悔棋</button>
+      <button class="ghost" id="bNew" type="button">新局</button>
+      <button class="ghost" id="bMenu" type="button">選單</button>
+    </div>
+  </div>
+</section>
+
+<div class="ov" id="ovSet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="setT">
+    <h2 id="setT">聲音</h2>
+    <div class="set">
+      <button class="ghost" id="bSound" type="button">音效：開</button>
+      <label for="vol">音量</label>
+      <input type="range" id="vol" min="0" max="100" value="80">
+    </div>
+    <button class="ghost solid" data-close type="button">好</button>
+  </div>
+</div>
+
+<div class="ov" id="ovRules" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="rT">
+    <h2 id="rT">規則</h2>
+    <p>三十二顆棋都蓋著。每回合，翻開一顆，或移動一顆自己的棋。</p>
+    <p>第一個翻棋的人，翻到的顏色就是自己的顏色。</p>
+    <h3>大小</h3>
+    <p>帥 ＞ 仕 ＞ 相 ＞ 俥 ＞ 傌 ＞ 炮 ＞ 兵<br>大吃小、同級互吃；兵可以吃帥，帥不能吃兵。只能吃翻開的棋。</p>
+    <h3>俥與炮</h3>
+    <p>俥直線走多格，只能吃緊鄰的棋。<br>炮隔一顆棋跳吃，什麼都能吃；同方向還能跳就能連吃，也可以停下。</p>
+    <h3>終局</h3>
+    <p>吃光對方者勝；輪到時無棋可走者負；連續五十步無人吃子為和局。</p>
+    <p style="margin-top:14px;opacity:.85">立體模式：拖曳旋轉視角，連點兩下回到原位。</p>
+    <div style="margin-top:18px"><button class="ghost solid" data-close type="button">明白了</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ovEnd" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="endT">
+    <div class="verdict" id="endT"></div>
+    <p id="endWhy"></p>
+    <div class="row" style="margin-top:22px">
+      <button class="ghost" id="bEndUndo" type="button">悔棋</button>
+      <button class="ghost" id="bEndMenu" type="button">選單</button>
+      <button class="ghost solid" id="bEndAgain" type="button">再一局</button>
+    </div>
+  </div>
+</div>
+<div class="note" id="note" hidden></div>
+
+<script src="../vendor/three.global.js"></script>
+<script src="shared/engine.js"></script>
+<script src="shared/sound.js"></script>
+<script src="shared/board3d.js"></script>
+<script src="shared/game.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  DanqiSound.setTimbre('ceramic');
+  let lastOpts = null, noteTimer = null;
+
+  // 立體主題：霧中漂浮的粉色石台，低視角鏡頭接近等角
+  const theme3d = {
+    transparent: true, fov: 20, fit: { x: 0.86, y: 0.56 },
+    boardTop: '#F6DCD6', boardTop2: '#EFC6C4', boardSide: '#D8A9B8', gridLine: 'rgba(0,0,0,0)', boardBorder: 'rgba(0,0,0,0)',
+    plinth: { h: 1.6, color: '#8F7099' },
+    red: { color: '#D9566B', roughness: 0.55, clearcoat: 0.2 },
+    black: { color: '#2D2A4A', roughness: 0.5, clearcoat: 0.2 },
+    bandRed: { bg: '#FBF3EE', ink: '#C2455C', rule: '#D9566B' },
+    bandBlack: { bg: '#FBF3EE', ink: '#2D2A4A', rule: '#2D2A4A' },
+    cup: { color: '#CDB9E8', roughness: 0.7, clearcoat: 0 },
+    select: '#FFFFFF', target: '#2D2A4A', capture: '#C2455C', last: '#FFFFFF',
+    hemiSky: '#FFE7EC', hemiGround: '#5F5C93', hemi: 1.1, sun: '#FFE4D6', sunI: 2.0, fill: '#8FA8FF', fillI: 0.8, exposure: 1.0,
+    font: '"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif'
+  };
+
+  function note(msg) { const n = $('note'); n.textContent = msg; n.hidden = false; clearTimeout(noteTimer); noteTimer = setTimeout(() => { n.hidden = true; }, 6000); }
+  const lostHTML = (p, v) => '<span class="lost" aria-label="吃掉的棋">' + p.captured.map(c => '<i class="c' + v.colorOf(c) + '">' + v.nameOf(c) + '</i>').join('') + '</span>';
+
+  function onRender(v) {
+    const top = v.players[1 - v.bottom], bot = v.players[v.bottom];
+    $('pTop').innerHTML = '<span class="nm"><span class="sw ' + (top.color < 0 ? '' : 'c' + top.color) + '"></span>' + top.name + '・' + top.colorName + '</span>' +
+      '<span class="on">' + (top.thinking ? '思考中' : top.active ? '輪到' : '　') + '</span>' + lostHTML(top, v);
+    $('pBot').innerHTML = '<span>' + bot.name + '・' + bot.colorName + '</span>' + lostHTML(bot, v);
+    $('status').innerHTML = v.thinking ? '<span class="think">' + v.status + '</span>' : v.status;
+    $('noCap').innerHTML = v.nearDraw ? '<span class="warn">未吃子 ' + v.noCap + '／' + v.drawLimit + '・將和局</span>' : '未吃子 ' + v.noCap + '／' + v.drawLimit;
+    $('lvl').textContent = v.mode === 'ai' ? '電腦・' + v.levelName : '兩人';
+    $('hint').textContent = v.is3D ? '拖曳可旋轉' : '';
+    $('bStop').hidden = !v.chainPending;
+    $('bUndo').disabled = $('bEndUndo').disabled = !v.canUndo;
+  }
+
+  const game = DanqiGame.create({
+    stage: $('stage'), theme3d, onRender, onNotice: note,
+    onResult: v => { $('endT').textContent = v.result.title; $('endWhy').textContent = v.result.reason; $('ovEnd').hidden = false; }
+  });
+
+  const pick = n => document.querySelector('input[name="' + n + '"]:checked').value;
+  function start() {
+    lastOpts = { mode: pick('mode'), level: pick('level'), first: pick('first') };
+    hideMenuBoard();
+    $('menu').hidden = true; $('game').hidden = false; $('ovEnd').hidden = true;
+    game.newGame(lastOpts);
+  }
+  // 選單背景：一座全部蓋著的石台，緩慢旋轉
+  let menuBoard = null;
+  function showMenuBoard() {
+    if (menuBoard) return;
+    try {
+      menuBoard = DanqiBoard3D.create(Object.assign({}, theme3d, { autoSpin: 0.12, fit: { x: 0.92, y: 0.5 } }));
+      menuBoard.mount($('menuStage'));
+      menuBoard.sync(DanqiEngine.newGame());
+      menuBoard.mark({ selected: null, targets: new Map(), last: new Set(), labels: [] });
+    } catch (e) { console.warn('[暗棋] 選單背景 3D 無法顯示：', e); menuBoard = null; }
+  }
+  function hideMenuBoard() { if (menuBoard) { menuBoard.unmount(); menuBoard = null; } }
+  function toMenu() { game.quit(); $('ovEnd').hidden = true; $('game').hidden = true; $('menu').hidden = false; showMenuBoard(); }
+  // 這個方向預設就是立體
+  let want3D = true;
+  try { want3D = localStorage.getItem('danqiD.3d') !== '0'; } catch (e) { /* 讀不到用預設 */ }
+  game.set3D(want3D);
+  showMenuBoard();
+
+  document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => { const ai = pick('mode') === 'ai'; $('oLevel').hidden = $('oFirst').hidden = !ai; }));
+  $('bStart').onclick = start;
+  $('bNew').onclick = () => { if (!game.inProgress() || confirm('放棄這局，重新開始？')) start(); };
+  $('bMenu').onclick = () => { if (!game.inProgress() || confirm('離開這一局？')) toMenu(); };
+  $('bUndo').onclick = () => game.undo();
+  $('bStop').onclick = () => game.stopChain();
+  $('bEndUndo').onclick = () => { $('ovEnd').hidden = true; game.undo(); };
+  $('bEndMenu').onclick = toMenu;
+  $('bEndAgain').onclick = () => { $('ovEnd').hidden = true; game.newGame(lastOpts); };
+  $('bView').onclick = () => { const ok = game.set3D(!game.is3D()); try { localStorage.setItem('danqiD.3d', ok ? '1' : '0'); } catch (e) { /* 忽略 */ } };
+  $('bSet').onclick = () => { $('ovSet').hidden = false; };
+  $('bRules').onclick = () => { $('ovRules').hidden = false; };
+  document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => { b.closest('.ov').hidden = true; });
+  $('bSound').onclick = () => { DanqiSound.setEnabled(!DanqiSound.isEnabled()); $('bSound').textContent = '音效：' + (DanqiSound.isEnabled() ? '開' : '關'); DanqiSound.play('select'); };
+  $('vol').oninput = e => DanqiSound.setVolume(e.target.value / 100);
+  $('vol').onchange = () => DanqiSound.play('flip');
+  window.__danqi = game;
+})();
+</script>
+</body>
+</html>

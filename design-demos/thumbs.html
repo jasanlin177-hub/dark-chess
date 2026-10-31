@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>暗棋 六個候選</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&family=Noto+Sans+TC:wght@400;700;900&family=Noto+Serif+TC:wght@700;900&family=Josefin+Sans:wght@300;600&family=ZCOOL+KuaiLe&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #d9d9d4; font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif; padding: 24px; }
+  .sheet { display: grid; grid-template-columns: repeat(3, 480px); gap: 22px 22px; }
+  .cap { font-size: 13px; color: #333; margin-top: 6px; }
+  .cap b { color: #000; }
+  .t { width: 480px; height: 300px; position: relative; overflow: hidden; border-radius: 6px; }
+  .board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(4, 1fr); position: absolute; }
+  .board > i { display: flex; align-items: center; justify-content: center; font-style: normal; }
+  .pc { border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+  /* A Not Boring */
+  .A { background: #FF7A2D; font-family: "Bricolage Grotesque", "Noto Sans TC", sans-serif; }
+  .A .bar { position: absolute; left: 24px; right: 24px; height: 40px; border-radius: 20px; background: #1B1330; color: #fff; display: flex; align-items: center; padding: 0 16px; font-weight: 900; font-size: 15px; gap: 8px; box-shadow: 0 5px 0 #000; }
+  .A .bar.me { background: #fff; color: #1B1330; box-shadow: 0 5px 0 #c24d10; }
+  .A .slab { position: absolute; left: 24px; top: 66px; width: 432px; height: 168px; border-radius: 18px; background: #FFE3CC; box-shadow: 0 10px 0 #C24D10, inset 0 2px 0 #fff; }
+  .A .board { inset: 10px; gap: 4px; }
+  .A .board i { background: #FFD0AA; border-radius: 10px; }
+  .A .pc { width: 34px; height: 34px; font-weight: 900; font-size: 18px; box-shadow: 0 4px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.7); }
+  .A .h { background: radial-gradient(circle at 35% 30%, #8A6CFF, #4B2FCC); }
+  .A .r { background: #fff; color: #E5322D; }
+  .A .k { background: #fff; color: #1B1330; }
+  .A .badge { position:absolute; right: 24px; top: 6px; font-size: 13px; color:#1B1330; font-weight: 800; }
+
+  /* B 田中一光 */
+  .B { background: #EFE7D6; font-family: "Noto Serif TC", serif; }
+  .B .v { position: absolute; left: 22px; top: 22px; writing-mode: vertical-rl; font-size: 64px; font-weight: 900; color: #111; letter-spacing: 6px; }
+  .B .geo { position: absolute; left: 100px; top: 40px; width: 70px; height: 70px; background: #D9381E; border-radius: 0 0 70px 0; }
+  .B .geo2 { position: absolute; left: 100px; top: 110px; width: 70px; height: 70px; background: #E3B23C; border-radius: 50%; }
+  .B .geo3 { position: absolute; left: 100px; top: 180px; width: 70px; height: 70px; background: repeating-linear-gradient(#111 0 6px, #EFE7D6 6px 12px); }
+  .B .board { left: 196px; top: 46px; width: 264px; height: 132px; border: 2px solid #111; }
+  .B .board i { border-right: 1px solid #111; border-bottom: 1px solid #111; }
+  .B .pc { width: 25px; height: 25px; font-size: 14px; font-weight: 900; }
+  .B .h { background: #2E4A62; }
+  .B .r { background: #D9381E; color: #EFE7D6; }
+  .B .k { background: #111; color: #EFE7D6; }
+  .B .tags { position: absolute; left: 196px; top: 196px; display: flex; gap: 10px; font-family: "Noto Sans TC"; font-size: 12px; }
+  .B .tags span b { display: inline-block; background: #D9381E; color: #fff; padding: 1px 6px; margin-right: 4px; font-weight: 700; }
+  .B .line { position: absolute; left: 196px; right: 20px; bottom: 26px; border-top: 2px solid #111; font-size: 12px; font-family: "Noto Sans TC"; padding-top: 6px; }
+
+  /* C Chess.com */
+  .C { background: #312E2B; font-family: "Inter", "Noto Sans TC", sans-serif; color: #fff; }
+  .C .board { left: 20px; top: 40px; width: 300px; height: 150px; }
+  .C .board i:nth-child(odd) { background: #EBECD0; }
+  .C .board i:nth-child(even) { background: #739552; }
+  .C .board i:nth-child(16n+9), .C .board i:nth-child(16n+11), .C .board i:nth-child(16n+13), .C .board i:nth-child(16n+15) { background: #739552; }
+  .C .board i:nth-child(16n+10), .C .board i:nth-child(16n+12), .C .board i:nth-child(16n+14), .C .board i:nth-child(16n+16) { background: #EBECD0; }
+  .C .pc { width: 28px; height: 28px; font-weight: 900; font-size: 16px; box-shadow: 0 2px 0 rgba(0,0,0,.4); }
+  .C .h { background: #5d4b3a; box-shadow: inset 0 0 0 3px #3e3226; }
+  .C .r { background: #fff; color: #c33; }
+  .C .k { background: #222; color: #fff; }
+  .C .pl { position: absolute; left: 20px; font-size: 13px; font-weight: 700; display: flex; gap: 6px; align-items: center; }
+  .C .pl::before { content: ""; width: 18px; height: 18px; background: #666; border-radius: 3px; }
+  .C .side { position: absolute; right: 16px; top: 16px; width: 130px; bottom: 16px; background: #262421; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .C .side div { background: #3a3734; border-radius: 6px; padding: 6px 8px; font-size: 13px; font-weight: 700; box-shadow: 0 3px 0 #1e1c1a; }
+  .C .side div small { display: block; font-weight: 400; color: #bbb; font-size: 12px; }
+  .C .side .go { background: #81B64C; box-shadow: 0 3px 0 #45753c; text-align: center; font-size: 15px; }
+
+  /* D Monument Valley */
+  .D { background: linear-gradient(180deg, #E7A9B6 0%, #9C86B8 55%, #4F5486 100%); font-family: "Josefin Sans", "Noto Sans TC", sans-serif; color: #fff; }
+  .D h3 { position: absolute; top: 18px; width: 100%; text-align: center; margin: 0; font-weight: 300; letter-spacing: 12px; font-size: 22px; }
+  .D .iso { position: absolute; left: 50%; top: 150px; transform: translate(-50%, -50%) rotateX(58deg) rotateZ(-38deg); width: 300px; height: 150px; }
+  .D .iso .board { inset: 0; background: #F3D7D2; box-shadow: 6px 6px 0 #B98AA4, 12px 12px 0 #8F7099, 18px 18px 0 #6A5D8A; }
+  .D .iso .board i:nth-child(even) { background: #EBC6C5; }
+  .D .pc { width: 22px; height: 22px; font-size: 12px; font-weight: 700; transform: rotateZ(38deg); }
+  .D .h { background: #5A4F87; box-shadow: 0 0 0 3px #7C6FAE; }
+  .D .r { background: #fff; color: #C2556E; }
+  .D .k { background: #2D2A4A; color: #fff; }
+  .D .foot { position: absolute; bottom: 16px; width: 100%; text-align: center; font-size: 13px; letter-spacing: 3px; font-weight: 600; }
+
+  /* E Native Polish */
+  .E { background: #F2F2F5; font-family: "Inter", "Noto Sans TC", sans-serif; color: #1D1D1F; }
+  .E .card { position: absolute; left: 24px; top: 20px; width: 432px; height: 258px; background: #fff; border-radius: 16px; box-shadow: 0 2px 6px rgba(0,0,0,.06), 0 26px 60px rgba(0,0,0,.12); }
+  .E h2 { margin: 16px 20px 0; font-size: 24px; font-weight: 700; }
+  .E .sub { margin: 2px 20px; color: #8A8F9B; font-size: 13px; }
+  .E .board { left: 20px; top: 80px; width: 392px; height: 140px; gap: 3px; }
+  .E .board i { background: #F4F4F6; border-radius: 7px; }
+  .E .pc { width: 28px; height: 28px; font-size: 15px; font-weight: 700; }
+  .E .h { background: #E3E4E8; box-shadow: inset 0 0 0 2px #D0D2D8; }
+  .E .r { background: #fff; color: #E5484D; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .E .k { background: #fff; color: #1D1D1F; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .E .sel { box-shadow: 0 0 0 3px #3478F6 !important; }
+  .E .bt { position: absolute; right: 20px; bottom: 12px; width: 34px; height: 34px; border-radius: 50%; background: #3478F6; color: #fff; display:flex; align-items:center; justify-content:center; font-size: 13px; }
+
+  /* F 服部一成 */
+  .F { background: #F3EFE4; font-family: "Noto Sans TC", sans-serif; }
+  .F .big { position: absolute; left: -6px; top: -26px; font-size: 300px; font-weight: 900; line-height: 1; color: transparent;
+    background: repeating-linear-gradient(#E4553E 0 7px, transparent 7px 14px); -webkit-background-clip: text; background-clip: text; }
+  .F .big2 { left: 4px; top: -20px; background: repeating-linear-gradient(transparent 0 7px, #2F7BE0 7px 14px); -webkit-background-clip: text; background-clip: text; }
+  .F .board { right: 20px; top: 60px; width: 230px; height: 115px; background: #fff; border: 3px solid #111; }
+  .F .board i { border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; }
+  .F .pc { width: 22px; height: 22px; font-size: 12px; font-weight: 900; }
+  .F .h { background: #111; }
+  .F .r { background: #E4553E; color: #fff; }
+  .F .k { background: #2F7BE0; color: #fff; }
+  .F .sticker { position: absolute; right: 120px; top: 14px; background: #F2D930; padding: 6px 12px; transform: rotate(-5deg); font-family: "ZCOOL KuaiLe"; font-size: 20px; }
+  .F .wave { position: absolute; left: 10px; bottom: 30px; }
+  .F .info { position: absolute; right: 20px; bottom: 26px; width: 230px; font-size: 12px; }
+  .F .info div { display: flex; justify-content: space-between; border-bottom: 2px solid #111; padding: 3px 0; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div><div class="t A" id="A"></div><div class="cap"><b>A</b> 最佳設計師｜Andy Works（Not Boring）厚按鈕＋整屏隨回合變色</div></div>
+  <div><div class="t B" id="B"></div><div class="cap"><b>B</b> 最佳設計師｜田中一光 網格幾何、紅黑芥黃</div></div>
+  <div><div class="t C" id="C"></div><div class="cap"><b>C</b> 現實參照｜Chess.com 對弈頁</div></div>
+  <div><div class="t D" id="D"></div><div class="cap"><b>D</b> 現實參照｜Monument Valley 霧中石台</div></div>
+  <div><div class="t E" id="E"></div><div class="cap"><b>E</b> 輪盤 App10｜原生精修（Things 3）</div></div>
+  <div><div class="t F" id="F"></div><div class="cap"><b>F</b> 輪盤 東亞10｜服部一成 玩味錯位</div></div>
+</div>
+<script>
+  // 同一個盤面，六種畫法
+  const layout = 'h,r帥,h,k車,h,h,r炮,h|k卒,h,,r兵,h,k包,h,h|h,h,r傌,h,,h,k士,h|h,k將,h,h,r相,h,h,r仕';
+  function board(sel) {
+    const b = document.createElement('div'); b.className = 'board';
+    layout.split('|').forEach(row => row.split(',').forEach(v => {
+      const i = document.createElement('i');
+      if (v) { const p = document.createElement('span'); p.className = 'pc ' + v[0] + (v === 'r炮' && sel ? ' sel' : ''); p.textContent = v.slice(1); i.appendChild(p); }
+      b.appendChild(i);
+    }));
+    return b;
+  }
+  const $ = id => document.getElementById(id);
+  $('A').innerHTML = '<div class="badge">紅方回合</div><div class="bar" style="top:14px">電腦 · 黑 <span style="margin-left:auto">吃 2</span></div><div class="slab"></div><div class="bar me" style="bottom:14px">你 · 紅 <span style="margin-left:auto">吃 3</span></div>';
+  $('A').querySelector('.slab').appendChild(board());
+  $('B').innerHTML = '<div class="v">暗棋</div><div class="geo"></div><div class="geo2"></div><div class="geo3"></div><div class="tags"><span><b>回合</b>紅方</span><span><b>對手</b>電腦・普通</span><span><b>未吃子</b>12/50</span></div><div class="line">悔棋　　停止連吃　　重新開始</div>';
+  $('B').appendChild(board());
+  $('C').innerHTML = '<div class="pl" style="top:14px">電腦（普通）</div><div class="pl" style="top:198px">你</div><div class="side"><div>翻棋或走棋<small>輪到你（紅）</small></div><div>悔棋<small>退回上一步</small></div><div>立體模式<small>拖曳旋轉</small></div><div class="go">新對局</div></div>';
+  $('C').appendChild(board());
+  $('D').innerHTML = '<h3>暗　棋</h3><div class="iso"></div><div class="foot">輪 到 你 · 紅</div>';
+  $('D').querySelector('.iso').appendChild(board());
+  $('E').innerHTML = '<div class="card"><h2>輪到你</h2><div class="sub">紅方 · 連續未吃子 12 / 50</div><div class="bt">悔</div></div>';
+  $('E').querySelector('.card').appendChild(board(true));
+  $('F').innerHTML = '<div class="big">暗</div><div class="big big2">暗</div><div class="sticker">輪到你啦！</div><svg class="wave" width="200" height="40"><path d="M10 20 Q 50 0 90 20 T 170 20" stroke="#111" stroke-width="10" fill="none" stroke-linecap="round"/></svg><div class="info"><div><span>對手</span><span>電腦・普通</span></div><div><span>未吃子</span><span>12 / 50</span></div></div>';
+  $('F').appendChild(board());
+</script>
+</body>
+</html>
