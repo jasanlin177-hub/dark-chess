@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>暗棋</title>
+<!-- 安裝成 App 用（PWA）：manifest 由 app.js 在 https 網址上才加入，直接開檔案時不會報錯 -->
+<meta name="theme-color" content="#EFE7D6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="暗棋">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -111,6 +119,13 @@
   .switch input { width: 20px; height: 20px; accent-color: var(--red); }
   .card .hint { font-size: 13px; color: var(--muted); margin-top: 2px; }
   .card .hint.on { color: var(--red); font-weight: 700; }
+  #ovIos dl { grid-template-columns: 30px 1fr; }
+  .tlink.install { background: var(--red); color: #fff; padding: 4px 10px; border-bottom: 0; }
+  .update { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 70; display: flex; align-items: center; gap: 12px;
+    background: var(--ink); color: var(--paper); padding: 8px 10px 8px 16px; font-size: 15px; font-weight: 700; max-width: 92vw; }
+  .update button { border: 0; font-weight: 700; padding: 6px 12px; }
+  #bUpdate { background: var(--red); color: #fff; }
+  #bUpdateLater { background: transparent; color: var(--paper); }
   .note { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; font-size: 14px; z-index: 60; max-width: 92vw; }
 
   @media (max-width: 860px) {
@@ -144,6 +159,7 @@
       <button class="tlink" id="b3d" type="button" aria-pressed="false">立體</button>
       <button class="tlink" id="bSet" type="button">聲音</button>
       <button class="tlink" id="bRules" type="button">規則</button>
+      <button class="tlink install" id="bInstall" type="button" hidden>安裝</button>
     </div>
 
     <section id="menu">
@@ -219,6 +235,24 @@
       <button class="go" id="bEndAgain" type="button" style="font-size:16px;padding:10px 22px">再一局</button>
     </div>
   </div>
+</div>
+<div class="ov" id="ovIos" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="iT">
+    <h2 id="iT">加入主畫面</h2>
+    <dl>
+      <dt><span class="tag">1</span></dt><dd>用 <b>Safari</b> 打開這個網址（LINE、FB 裡開的視窗不行，請點右上角選「用 Safari 開啟」）。</dd>
+      <dt><span class="tag">2</span></dt><dd>點畫面下方（iPad 在右上方）的<b>分享</b>按鈕：一個方框加向上的箭頭。</dd>
+      <dt><span class="tag">3</span></dt><dd>往下找到<b>「加入主畫面」</b>，再按右上角的<b>「新增」</b>。</dd>
+    </dl>
+    <p class="hint">裝好之後，從主畫面的「暗棋」圖示打開，就像一般 App，沒網路也能玩。</p>
+    <div class="row"><button class="tlink" data-close type="button">知道了</button></div>
+  </div>
+</div>
+
+<div class="update" id="update" role="status" hidden>
+  <span>有新版本</span>
+  <button type="button" id="bUpdate">更新</button>
+  <button type="button" id="bUpdateLater" aria-label="稍後再說">稍後</button>
 </div>
 <div class="note" id="note" hidden></div>
 

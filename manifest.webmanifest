@@ -1,0 +1,19 @@
+{
+  "name": "暗棋",
+  "short_name": "暗棋",
+  "description": "暗棋網頁遊戲：一人對電腦或兩人輪流，平面／立體棋子，安裝後沒網路也能玩",
+  "lang": "zh-Hant",
+  "id": "./",
+  "start_url": "./%E6%9A%97%E6%A3%8B.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#EFE7D6",
+  "theme_color": "#EFE7D6",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

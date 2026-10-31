@@ -92,7 +92,58 @@
   $('bSound').onclick = () => { DanqiSound.setEnabled(!DanqiSound.isEnabled()); pref.set('sound', DanqiSound.isEnabled() ? '1' : '0'); syncSound(); DanqiSound.play('select'); };
   $('vol').oninput = e => DanqiSound.setVolume(e.target.value / 100);
   $('vol').onchange = e => { pref.set('volume', e.target.value); DanqiSound.play('move'); };
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') ['ovSet', 'ovRules'].forEach(id => { $(id).hidden = true; }); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') ['ovSet', 'ovRules', 'ovIos'].forEach(id => { $(id).hidden = true; }); });
+
+  // ───── 安裝成 App（PWA）：只在 https 網址（或本機測試伺服器）上啟用；直接開檔案照常能玩 ─────
+  const onWeb = /^https?:$/.test(location.protocol);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (onWeb) {
+    const link = document.createElement('link');
+    link.rel = 'manifest'; link.href = 'manifest.webmanifest';
+    document.head.appendChild(link);
+  }
+
+  // 安裝按鈕：Android／電腦 Chrome 用瀏覽器的安裝視窗；iPhone 沒有這種視窗，改顯示「加入主畫面」教學
+  let installEvent = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvent = e; $('bInstall').hidden = false; });
+  window.addEventListener('appinstalled', () => { installEvent = null; $('bInstall').hidden = true; note('已安裝到主畫面，之後可以從「暗棋」圖示直接打開。'); });
+  if (onWeb && isIos && !standalone) $('bInstall').hidden = false;
+  $('bInstall').onclick = async () => {
+    if (installEvent) {
+      installEvent.prompt();
+      const choice = await installEvent.userChoice;
+      if (choice.outcome === 'accepted') $('bInstall').hidden = true;
+      installEvent = null;
+    } else if (isIos) {
+      $('ovIos').hidden = false;
+    }
+  };
+
+  // 背景程式與更新提示：有新版先在背景下載好，跳提示讓玩家自己決定什麼時候更新
+  if (onWeb && 'serviceWorker' in navigator) {
+    let waiting = null, reloading = false;
+    const showUpdate = w => { waiting = w; $('update').hidden = false; };
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      if (reg.waiting && navigator.serviceWorker.controller) showUpdate(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const w = reg.installing;
+        w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdate(w); });
+      });
+      // 從背景切回來時順便檢查有沒有新版
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => { /* 離線時檢查不到，下次再試 */ }); });
+    }).catch(err => {
+      console.error('[暗棋] 離線功能無法啟用：', err);
+      note('離線功能無法啟用（' + err.message + '），需要網路才能打開，遊戲本身不受影響。');
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloading) { reloading = true; location.reload(); } });
+    $('bUpdate').onclick = () => {
+      if (game.inProgress() && !confirm('更新會重新載入，這一局會中斷。要現在更新嗎？（也可以按「稍後」，下完再更新）')) return;
+      $('update').hidden = true;
+      if (waiting) waiting.postMessage('skipWaiting');
+    };
+    $('bUpdateLater').onclick = () => { $('update').hidden = true; };
+  }
 
   DanqiSound.setEnabled(pref.get('sound', '1') === '1');
   DanqiSound.setVolume(Number(pref.get('volume', '80')) / 100);

@@ -50,6 +50,24 @@ try {
   fail('規則測試沒過');
 }
 
-// 4. 通過才覆蓋正式檔
+// 4. PWA 檔案的契約檢查：manifest 裡的圖示要真的存在
+const manifestSrc = fs.readFileSync(path.join(root, 'src', 'pwa', 'manifest.webmanifest'), 'utf8');
+let manifest;
+try { manifest = JSON.parse(manifestSrc); } catch (e) { fail('manifest.webmanifest 不是合法的 JSON：' + e.message); }
+const icons = manifest.icons.map(i => i.src).concat(['icons/apple-touch-icon.png', 'icons/favicon-32.png']);
+for (const ic of icons) if (!fs.existsSync(path.join(root, ic))) fail('找不到圖示 ' + ic + '（先執行 python tools/make-icons.py）');
+
+// 5. 組出背景程式。版本＝遊戲檔內容的雜湊：遊戲一改，已安裝的人就會看到「有新版本」
+const version = require('crypto').createHash('sha256').update(html).digest('hex').slice(0, 12);
+const files = ['./', './index.html', './' + encodeURIComponent('暗棋.html'), './manifest.webmanifest'].concat(icons.map(i => './' + i));
+const sw = fs.readFileSync(path.join(root, 'src', 'pwa', 'sw.js'), 'utf8')
+  .replace("const VERSION = '__VERSION__';", 'const VERSION = ' + JSON.stringify(version) + ';')
+  .replace('const FILES = __FILES__;', 'const FILES = ' + JSON.stringify(files, null, 2) + ';');
+if (!sw.includes('const VERSION = "' + version + '"') || sw.includes('const FILES = __FILES__')) fail('sw.js 的版本或檔案清單沒有填入');
+
+// 6. 全部檢查通過，才寫出正式檔
 fs.renameSync(TMP, OUT);
+fs.writeFileSync(path.join(root, 'manifest.webmanifest'), manifestSrc);
+fs.writeFileSync(path.join(root, 'sw.js'), sw);
 console.log('✔ 已產出 暗棋.html（' + Math.round(html.length / 1024) + ' KB），嵌入：' + inlined.join('、'));
+console.log('✔ 已產出 sw.js（版本 ' + version + '，快取 ' + files.length + ' 個檔案）與 manifest.webmanifest');

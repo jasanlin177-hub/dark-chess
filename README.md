@@ -13,6 +13,7 @@
   - 立體：真 3D，西洋棋造型（帥＝國王、仕＝皇后、相＝主教、俥＝城堡、傌＝騎士、兵＝士兵，炮是自訂的砲台），棋子腰帶和旁邊的小名牌都印中文字；蓋著的棋用罩杯蓋住，翻棋時罩杯掀開；拖曳可旋轉視角，連點兩下回到原位
 - 悔棋（對電腦時，會一次退回到你上一步之前）、連吃時可以選擇停止
 - 音效全部即時合成，不需要音檔：選棋、翻棋、走棋、吃子（吃到帥、仕有鐘聲）、連吃（越吃音越高）、無效點擊、快和局警示、勝／負／和；可以關掉、調音量
+- **可以安裝成 App**（PWA）：從網址打開後按右上角「安裝」（Android、電腦 Chrome）；iPhone 會顯示「分享 → 加入主畫面」教學。裝好後從主畫面圖示打開，沒網路也能玩；線上改版時會跳「有新版本」提示，由玩家自己按更新，不會打斷下到一半的棋
 - 會記住你上次選的平面／立體、音效開關與音量、連吃規則選項（只存在這台裝置的瀏覽器）
 
 ## 畫面設計
@@ -61,7 +62,11 @@ src/engine.js               規則引擎與電腦 AI（規則的唯一來源）
 src/game.js                 遊戲流程（輪替、電腦、悔棋、音效觸發）＋平面棋盤
 src/board3d.js              立體棋盤（Three.js）
 src/sound.js                合成音效
-src/app.js                  畫面互動（選單、按鈕、設定）
+src/app.js                  畫面互動（選單、按鈕、設定、安裝與更新提示）
+src/pwa/                    PWA 原始檔：manifest、背景程式 sw.js（版本由建置填入）、圖示原稿 icon.html
+index.html                  網站首頁，直接轉到 暗棋.html
+manifest.webmanifest、sw.js 由 tools/build.js 產生（不要手改）
+icons/                      App 圖示，由 tools/make-icons.py 產生
 vendor/three.module.min.js  Three.js r170 原檔（MIT 授權，從 cdn.jsdelivr.net 下載）
 vendor/three.global.js      由 tools/build-three-global.js 轉換，給單一檔案嵌入用
 tools/build.js              建置：組出 暗棋.html，組好先跑規則測試，沒過就不產出
@@ -83,7 +88,9 @@ design-demos/               三個設計方向的原型與截圖（凍結的設�
 
   建置會先跑規則測試，沒過就中止、不會覆蓋 `暗棋.html`。直接手改 `暗棋.html` 會在下次建置時被蓋掉。
 - 還沒建置前想先測 `src/engine.js`：PowerShell 執行 `$env:DANQI_SRC=1; node tests/engine.test.js`（預設測的是建置好的 `暗棋.html`）
-- 提交時 `src/` 和 `暗棋.html` 要一起 commit，兩者才會是同一個版本
+- 提交時 `src/`、`暗棋.html`、`sw.js`、`manifest.webmanifest` 要一起 commit，才會是同一個版本。`sw.js` 的版本號是 `暗棋.html` 內容的雜湊，遊戲有改動就會自動換版號，已安裝的人才會收到更新提示
+- 改圖示：修改 `src/pwa/icon.html`，執行 `python tools/make-icons.py`（需要網路載入字型），再建置
+- 安裝、離線、更新提示只在 https 網址（GitHub Pages）或本機伺服器上運作；直接點兩下開 `暗棋.html` 時不會啟用，但遊戲照常能玩。本機測試可在專案資料夾執行 `python -m http.server 8765`，再開 http://127.0.0.1:8765/
 - 修改規則或電腦 AI 之後，另外跑電腦互打：
 
   ```

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>暗棋圖示</title>
+<!-- 圖示原稿：由 tools/make-icons.py 用瀏覽器截圖成各尺寸 PNG。網址加 ?maskable 會把圖案縮進安全區（Android 會裁成圓形或圓角） -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; }
+  .icon { width: 512px; height: 512px; background: #EFE7D6; position: relative; overflow: hidden; }
+  .art { position: absolute; inset: 0; }
+  /* 安全區（中間半徑 40% 的圓）：裝飾讓它被裁掉沒關係，黑色棋子要整顆在安全區內 */
+  .maskable .piece { right: 17%; bottom: 17%; width: 56%; height: 56%; }
+  .q { position: absolute; left: 0; top: 0; width: 46%; height: 46%; background: #D9381E; border-radius: 0 0 100% 0; }
+  .dot { position: absolute; right: 9%; top: 9%; width: 15%; height: 15%; border-radius: 50%; background: #E3B23C; }
+  .bars { position: absolute; left: 9%; bottom: 10%; width: 22%; height: 18%;
+    background: repeating-linear-gradient(#141414 0 12%, transparent 12% 25%); }
+  .piece { position: absolute; right: 8%; bottom: 8%; width: 66%; height: 66%; border-radius: 50%; background: #141414;
+    display: flex; align-items: center; justify-content: center; }
+  .piece span { color: #EFE7D6; font-family: "Noto Serif TC", "PMingLiU", serif; font-weight: 900; font-size: 210px; line-height: 1; transform: translateY(-4%); }
+  .maskable .piece span { font-size: 178px; }
+</style>
+</head>
+<body>
+<div class="icon" id="icon"><div class="art"><i class="q"></i><i class="dot"></i><i class="bars"></i><div class="piece"><span>暗</span></div></div></div>
+<script>
+  if (location.search.includes('maskable')) document.getElementById('icon').classList.add('maskable');
+</script>
+</body>
+</html>
