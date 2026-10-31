@@ -80,17 +80,17 @@ test('炮不吃子時只能走一格', () => {
 });
 
 console.log('【俥】');
-test('俥直線走多格、被擋住就停', () => {
+test('俥一次只走一格（不能直線走多格）', () => {
   const s = pos([[0, 0, red(R)], [0, 3, ['H', red(P)]], [3, 7, black(P)]]);
   const t = targetsOf(s, sq(0, 0));
-  assert.deepStrictEqual(t, ['move:1', 'move:2', 'move:8', 'move:16', 'move:24'].sort());
+  assert.deepStrictEqual(t, ['move:1', 'move:8'].sort());
+  const s3 = pos([[1, 3, red(R)], [3, 7, black(P)]]);
+  assert.deepStrictEqual(targetsOf(s3, sq(1, 3)), ['move:' + sq(0, 3), 'move:' + sq(1, 2), 'move:' + sq(1, 4), 'move:' + sq(2, 3)].sort(), '中間位置四個方向各一格');
 });
 test('俥不能遠距吃，只能吃緊鄰的對方棋（大小照舊）', () => {
   const s = pos([[0, 0, red(R)], [0, 5, black(H)], [0, 7, black(P)], [3, 0, black(A)]]);
   const t = targetsOf(s, sq(0, 0));
   assert.ok(!t.includes('cap:' + sq(0, 5)), '不能遠距吃馬');
-  assert.ok(t.includes('move:' + sq(0, 4)) && !t.includes('move:' + sq(0, 5)), '走到馬前一格為止');
-  assert.ok(!t.includes('cap:' + sq(0, 7)), '不能越過馬吃卒');
   assert.ok(!t.some(x => x.startsWith('cap:')), '這個盤面不應有任何吃子');
   const s2 = pos([[1, 1, red(R)], [1, 2, black(H)], [0, 1, black(A)], [3, 7, black(P)]]);
   const t2 = targetsOf(s2, sq(1, 1));

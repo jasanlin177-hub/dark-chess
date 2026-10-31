@@ -96,15 +96,8 @@ var DanqiEngine = (function () {
           if (!fullChain) break;
           cur = tg;
         }
-      } else if (t === ROOK) {
-        let m = n;
-        while (m >= 0 && cells[m] === EMPTY) { out.push({ from: sq, to: m, seq: null }); m = STEP[m][d]; }
-        // 俥可以走多格，但只能吃緊鄰的對方棋（不能衝過去遠距吃）
-        if (m >= 0 && m === n) {
-          const v = cells[m];
-          if (isUp(v) && colorOf(v) !== color && canCapture(ROOK, typeOf(v))) out.push({ from: sq, to: m, seq: [m] });
-        }
       } else {
+        // 炮以外（含俥）都只走一格、只吃緊鄰的棋
         if (n < 0) continue;
         const v = cells[n];
         if (v === EMPTY) out.push({ from: sq, to: n, seq: null });
