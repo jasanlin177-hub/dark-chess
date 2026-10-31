@@ -1,0 +1,1338 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>暗棋</title>
+<style>
+  :root {
+    --bg: #2a1e16;
+    --bg2: #3a2a1e;
+    --panel: #f3e6cc;
+    --ink: #2b2118;
+    --muted: #7a6650;
+    --accent: #b3261e;
+    --gold: #c9a45c;
+    --wood1: #e2bf86;
+    --wood2: #d3a96a;
+    --line: rgba(90, 55, 25, .55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: radial-gradient(ellipse at top, var(--bg2), var(--bg) 70%) fixed, var(--bg);
+    color: var(--panel);
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font: inherit; cursor: pointer; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 12px 16px 32px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  header h1 { margin: 0; font-size: 26px; letter-spacing: 6px; font-family: "Noto Serif TC", "PMingLiU", serif; color: var(--gold); }
+  .hbtns { display: flex; gap: 6px; }
+  .btn {
+    border: 1px solid rgba(201, 164, 92, .5); background: rgba(255, 255, 255, .06); color: var(--panel);
+    padding: 8px 14px; border-radius: 10px; font-size: 15px;
+  }
+  .btn:hover { background: rgba(255, 255, 255, .12); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .btn.warn { background: #c27c0e; border-color: #c27c0e; color: #fff; font-weight: 700; }
+
+  /* ── 選單 ── */
+  .card { background: var(--panel); color: var(--ink); border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .card h2 { margin: 0 0 14px; font-size: 20px; }
+  .opt { margin-bottom: 16px; }
+  .opt .lab { font-weight: 700; margin-bottom: 8px; font-size: 15px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seg label { flex: 1 1 0; min-width: 90px; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg span {
+    display: block; text-align: center; padding: 10px 8px; border-radius: 10px;
+    border: 2px solid #d9c49c; background: #fbf4e4; font-size: 15px; user-select: none;
+  }
+  .seg input:checked + span { border-color: var(--accent); background: #fff; color: var(--accent); font-weight: 700; }
+  .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .menu-actions { display: flex; gap: 10px; margin-top: 8px; }
+  .menu-actions .btn { flex: 1; padding: 12px; font-size: 17px; }
+  .menu-actions .btn:not(.primary) { color: var(--ink); border-color: #c9b48a; background: #fbf4e4; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* ── 遊戲畫面 ── */
+  .player {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px;
+    background: rgba(255,255,255,.05); border: 2px solid transparent; min-height: 52px;
+  }
+  .player.active { border-color: var(--gold); background: rgba(201,164,92,.14); }
+  .player .who { font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .chip { width: 16px; height: 16px; border-radius: 50%; display: inline-block; border: 2px solid #fff3; background: #888; }
+  .chip.c0 { background: #c62828; }
+  .chip.c1 { background: #222; border-color: #fff8; }
+  .tray { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; justify-content: flex-end; }
+  .tray i {
+    font-style: normal; width: 24px; height: 24px; border-radius: 50%; background: #f6e7c8;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+    font-family: "Noto Serif TC", "PMingLiU", serif; font-weight: 700; box-shadow: inset 0 0 0 2px #c9a45c;
+  }
+  .tray i.c0 { color: #b3261e; }
+  .tray i.c1 { color: #1d1d1d; }
+  .thinking { font-size: 13px; color: var(--gold); animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+
+  .board-frame {
+    margin: 10px 0; padding: 10px; border-radius: 14px;
+    background: linear-gradient(135deg, #8a5a2b, #5e3b1b);
+    box-shadow: 0 12px 30px rgba(0,0,0,.45), inset 0 0 0 2px rgba(255,255,255,.08);
+  }
+  .board {
+    position: relative; width: 100%; aspect-ratio: 2 / 1; container-type: inline-size;
+    border-radius: 6px; overflow: hidden;
+    background:
+      repeating-linear-gradient(95deg, rgba(120,70,20,.06) 0 3px, transparent 3px 11px),
+      linear-gradient(160deg, var(--wood1), var(--wood2));
+  }
+  .grid {
+    position: absolute; inset: 0; pointer-events: none;
+    background-image: linear-gradient(to right, var(--line) 1px, transparent 1px), linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+    background-size: 12.5% 25%;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .layer { position: absolute; inset: 0; }
+  .cells { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(4, 1fr); z-index: 10; }
+  .cell { position: relative; border: 0; padding: 0; background: transparent; outline: none; }
+  .cell:focus-visible { box-shadow: inset 0 0 0 3px #1565c0; }
+  .cell.last::before {
+    content: ""; position: absolute; inset: 4%; border-radius: 8px;
+    border: 2px dashed rgba(21, 101, 192, .55);
+  }
+  .cell.selected::after {
+    content: ""; position: absolute; inset: 4%; border-radius: 50%;
+    box-shadow: 0 0 0 4px #1565c0, 0 0 14px 4px rgba(21,101,192,.6);
+  }
+  .cell.target::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: 22%; height: 22%;
+    transform: translate(-50%, -50%); border-radius: 50%; background: rgba(21, 101, 192, .7);
+  }
+  .cell.target.capture::after {
+    width: 86%; height: 86%; background: transparent;
+    box-shadow: 0 0 0 4px rgba(198, 40, 40, .9); animation: pulse 1s infinite;
+  }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(198,40,40,.35); } }
+
+  .pieces { z-index: 5; pointer-events: none; }
+  .piece {
+    position: absolute; left: 0; top: 0; width: 12.5%; height: 25%;
+    transition: transform .28s ease, opacity .35s ease; perspective: 700px; z-index: 1;
+  }
+  .piece.moving { z-index: 3; }
+  .piece .inner {
+    position: absolute; inset: 7%; transition: transform .45s ease; transform-style: preserve-3d;
+  }
+  .piece.up .inner { transform: rotateY(180deg); }
+  .piece.dead { opacity: 0; }
+  .piece.dead .inner { transform: rotateY(180deg) scale(.4); }
+  .face {
+    position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .back {
+    background: radial-gradient(circle at 35% 30%, #8d5a2c, #4b2c12 70%);
+    box-shadow: 0 3px 5px rgba(0,0,0,.45), inset 0 0 0 3px #c9a45c, inset 0 0 0 6px #4b2c12, inset 0 0 0 7px rgba(201,164,92,.6);
+  }
+  .front {
+    transform: rotateY(180deg);
+    background: radial-gradient(circle at 35% 30%, #fffaf0, #eedbb4 75%);
+    box-shadow: 0 3px 5px rgba(0,0,0,.45), inset 0 0 0 2px #b08a4a, inset 0 0 0 5px #fff7e6, inset 0 0 0 6px currentColor;
+    font-family: "Noto Serif TC", "PMingLiU", "Songti TC", serif; font-weight: 900;
+    font-size: 6.2cqw; line-height: 1;
+  }
+  .piece[data-color="0"] .front { color: #b3261e; }
+  .piece[data-color="1"] .front { color: #1f1f1f; }
+
+  .status {
+    text-align: center; min-height: 26px; font-size: 16px; color: var(--panel); margin: 8px 0;
+  }
+  .status b { color: var(--gold); }
+  .meta { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #cdb898; margin-top: 4px; gap: 8px; flex-wrap: wrap; }
+  .controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+  .notice {
+    background: #5b3a10; color: #ffe0a3; border: 1px solid #c27c0e; padding: 8px 12px; border-radius: 10px;
+    font-size: 14px; margin-bottom: 10px;
+  }
+  .notice.err { background: #5b1414; border-color: #c62828; color: #ffd0d0; }
+
+  /* ── 對話框 ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center;
+    padding: 16px; z-index: 100;
+  }
+  .overlay[hidden] { display: none; }
+  .dialog { max-width: 560px; width: 100%; max-height: 88vh; overflow: auto; }
+  .dialog h2 { margin-top: 0; }
+  .dialog ul { padding-left: 20px; margin: 6px 0 12px; }
+  .dialog li { margin: 4px 0; line-height: 1.55; }
+  .dialog h3 { margin: 14px 0 4px; font-size: 16px; color: var(--accent); }
+  .rank { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 15px; }
+  .result-title { font-size: 30px; text-align: center; margin: 4px 0 6px; color: var(--accent); }
+  .result-reason { text-align: center; color: var(--muted); margin-bottom: 16px; }
+
+  @media (max-width: 520px) {
+    header h1 { font-size: 22px; letter-spacing: 3px; }
+    .btn { padding: 7px 10px; font-size: 14px; }
+    .tray i { width: 20px; height: 20px; font-size: 12px; }
+    .board-frame { padding: 6px; }
+    .front { font-size: 6.6cqw; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>暗 棋</h1>
+    <div class="hbtns">
+      <button class="btn" id="btnRules" type="button">規則</button>
+      <button class="btn" id="btnSound" type="button" aria-pressed="true">音效：開</button>
+    </div>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <!-- 開始選單 -->
+  <section id="menu" class="card">
+    <h2>開新局</h2>
+    <div class="opt">
+      <div class="lab">對戰方式</div>
+      <div class="seg">
+        <label><input type="radio" name="mode" value="ai" checked><span>一人對電腦</span></label>
+        <label><input type="radio" name="mode" value="pvp"><span>兩人輪流</span></label>
+      </div>
+    </div>
+    <div class="opt" id="optLevel">
+      <div class="lab">電腦難度</div>
+      <div class="seg">
+        <label><input type="radio" name="level" value="easy"><span>簡單</span></label>
+        <label><input type="radio" name="level" value="normal" checked><span>普通</span></label>
+        <label><input type="radio" name="level" value="hard"><span>困難</span></label>
+      </div>
+    </div>
+    <div class="opt" id="optFirst">
+      <div class="lab">誰先開始</div>
+      <div class="seg">
+        <label><input type="radio" name="first" value="human" checked><span>我先</span></label>
+        <label><input type="radio" name="first" value="ai"><span>電腦先</span></label>
+        <label><input type="radio" name="first" value="random"><span>隨機</span></label>
+      </div>
+      <div class="hint">先開始的人第一步一定是翻棋，翻到什麼顏色，那個顏色就是他的。</div>
+    </div>
+    <div class="menu-actions">
+      <button class="btn primary" id="btnStart" type="button">開始遊戲</button>
+    </div>
+  </section>
+
+  <!-- 遊戲畫面 -->
+  <section id="game" hidden>
+    <div class="player" id="p1"></div>
+    <div class="board-frame">
+      <div class="board" id="board">
+        <div class="grid"></div>
+        <div class="layer pieces" id="pieces"></div>
+        <div class="layer cells" id="cells"></div>
+      </div>
+    </div>
+    <div class="player" id="p0"></div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+    <div class="meta">
+      <span id="noCap"></span>
+      <span id="levelTag"></span>
+    </div>
+    <div class="controls">
+      <button class="btn warn" id="btnStop" type="button" hidden>停止連吃</button>
+      <button class="btn" id="btnUndo" type="button">悔棋</button>
+      <button class="btn" id="btnRestart" type="button">重新開始</button>
+      <button class="btn" id="btnMenu" type="button">回選單</button>
+    </div>
+  </section>
+</div>
+
+<!-- 規則說明 -->
+<div class="overlay" id="rulesBox" hidden>
+  <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+    <h2 id="rulesTitle">暗棋規則</h2>
+    <h3>基本玩法</h3>
+    <ul>
+      <li>棋盤 4 × 8 格，32 顆棋子全部蓋著、隨機擺放。</li>
+      <li>每回合只能做一件事：<b>翻開一顆棋</b>，或<b>走動自己的一顆棋</b>。</li>
+      <li>第一個翻棋的人，翻到什麼顏色就是那一方。</li>
+      <li>只能吃<b>已經翻開</b>的對方棋子，蓋著的棋不能吃。</li>
+    </ul>
+    <h3>大小順序（大吃小、同級可以互吃）</h3>
+    <div class="rank">帥將 ＞ 仕士 ＞ 相象 ＞ 俥車 ＞ 傌馬 ＞ 炮包 ＞ 兵卒</div>
+    <ul>
+      <li>例外：<b>兵卒可以吃帥將</b>，但帥將不能吃兵卒。</li>
+    </ul>
+    <h3>走法</h3>
+    <ul>
+      <li>一般棋子：上下左右走一格，可以吃隔壁比自己小或同級的對方棋子。</li>
+      <li><b>俥車</b>：可以直線走多格，中間不能有棋子擋著；路上碰到的第一顆棋如果是對方、而且俥能吃（俥、傌、炮、兵），可以直接衝過去吃掉。</li>
+      <li><b>炮包</b>：平常上下左右走一格（不能用走的吃子）；吃子時要隔一顆棋（蓋著的也算）跳過去，可以吃任何棋子，包括帥將。</li>
+      <li><b>炮包連吃</b>：吃完一顆後，如果<b>同一方向</b>還能再跳吃，可以選擇繼續吃或停下來；不能轉彎換方向。</li>
+    </ul>
+    <h3>勝負</h3>
+    <ul>
+      <li>把對方的棋子全部吃光，就贏了。</li>
+      <li>輪到某一方時完全沒有棋可走（也沒有棋可翻），這一方就輸了。</li>
+      <li>雙方合計連續 50 步都沒有吃子，判為和局。</li>
+    </ul>
+    <div class="menu-actions"><button class="btn primary" id="btnRulesClose" type="button">知道了</button></div>
+  </div>
+</div>
+
+<!-- 結果 -->
+<div class="overlay" id="resultBox" hidden>
+  <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div class="result-title" id="resultTitle"></div>
+    <div class="result-reason" id="resultReason"></div>
+    <div class="menu-actions">
+      <button class="btn" id="btnResultUndo" type="button">悔棋</button>
+      <button class="btn" id="btnResultMenu" type="button">回選單</button>
+      <button class="btn primary" id="btnResultAgain" type="button">再來一局</button>
+    </div>
+  </div>
+</div>
+
+<!--
+  規則引擎與電腦 AI（不碰畫面）。
+  這一段同時給：主畫面、背景執行緒（Web Worker）、tests/ 的自動測試使用，是規則的唯一來源。
+-->
+<script id="engine">
+var DanqiEngine = (function () {
+  'use strict';
+
+  const COLS = 8, ROWS = 4, N = 32;
+  const EMPTY = -1, HIDDEN = 14;
+  // 棋子種類：0 帥 1 仕 2 相 3 俥 4 傌 5 炮 6 兵；棋子代碼 = 顏色 * 7 + 種類（紅 0、黑 1）
+  const KING = 0, ADV = 1, ELE = 2, ROOK = 3, HORSE = 4, CANNON = 5, PAWN = 6;
+  const RANK = [7, 6, 5, 4, 3, 2, 1];
+  const COUNT = [1, 2, 2, 2, 2, 2, 5];
+  // 電腦評估用的棋子價值
+  const VALUE = [100, 50, 26, 24, 12, 32, 8];
+  const NAMES = [['帥', '仕', '相', '俥', '傌', '炮', '兵'], ['將', '士', '象', '車', '馬', '包', '卒']];
+  const DRAW_LIMIT = 50;
+  const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  const WIN = 100000, INF = 1e9;
+  const TIMEOUT = { timeout: true };
+
+  const LEVELS = {
+    easy: { maxDepth: 1, timeMs: 300, noise: 30, randomness: 0.25 },
+    normal: { maxDepth: 3, timeMs: 900, noise: 4, randomness: 0 },
+    hard: { maxDepth: 12, timeMs: 1800, noise: 0, randomness: 0 }
+  };
+  // 搜尋中（非第一層）每個節點最多展開幾格翻棋
+  const FLIP_LIMIT = 4;
+
+  // STEP[格][方向] = 相鄰格，出界為 -1
+  const STEP = [];
+  for (let sq = 0; sq < N; sq++) {
+    const r = Math.floor(sq / COLS), c = sq % COLS, row = [];
+    for (let d = 0; d < 4; d++) {
+      const nr = r + DIRS[d][0], nc = c + DIRS[d][1];
+      row.push(nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS ? nr * COLS + nc : -1);
+    }
+    STEP.push(row);
+  }
+
+  const colorOf = code => (code >= 7 ? 1 : 0);
+  const typeOf = code => code % 7;
+  const isUp = v => v >= 0 && v < HIDDEN;
+  const nameOf = code => NAMES[colorOf(code)][typeOf(code)];
+
+  function makeRng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // 一般吃子（炮另計）：大吃小、同級互吃；帥不能吃兵、兵可以吃帥
+  function canCapture(att, tgt) {
+    if (att === KING && tgt === PAWN) return false;
+    if (att === PAWN && tgt === KING) return true;
+    return RANK[att] >= RANK[tgt];
+  }
+
+  // 炮從 from 往方向 d 跳吃：跳過一顆棋（蓋著的也算）後碰到的第一顆棋，若是翻開的對方棋就能吃；回傳目標格或 -1
+  function cannonTarget(cells, from, d, color) {
+    let n = STEP[from][d];
+    while (n >= 0 && cells[n] === EMPTY) n = STEP[n][d];
+    if (n < 0) return -1;
+    n = STEP[n][d];
+    while (n >= 0 && cells[n] === EMPTY) n = STEP[n][d];
+    if (n < 0) return -1;
+    const v = cells[n];
+    if (!isUp(v) || colorOf(v) === color) return -1;
+    return n;
+  }
+
+  function dirBetween(a, b) {
+    const dr = Math.sign(Math.floor(b / COLS) - Math.floor(a / COLS));
+    const dc = Math.sign((b % COLS) - (a % COLS));
+    for (let d = 0; d < 4; d++) if (DIRS[d][0] === dr && DIRS[d][1] === dc) return d;
+    return -1;
+  }
+
+  // 產生某一格棋子的走法。move = { from, to, seq }，seq 為吃子格的順序（null 表示不吃子）
+  // fullChain = true 時，炮連吃的每一種長度都列成一個走法（給電腦用）
+  function genPieceMoves(cells, sq, out, fullChain) {
+    const code = cells[sq], color = colorOf(code), t = typeOf(code);
+    for (let d = 0; d < 4; d++) {
+      const n = STEP[sq][d];
+      if (t === CANNON) {
+        if (n >= 0 && cells[n] === EMPTY) out.push({ from: sq, to: n, seq: null });
+        let cur = sq;
+        const seq = [];
+        for (;;) {
+          const tg = cannonTarget(cells, cur, d, color);
+          if (tg < 0) break;
+          seq.push(tg);
+          out.push({ from: sq, to: tg, seq: seq.slice() });
+          if (!fullChain) break;
+          cur = tg;
+        }
+      } else if (t === ROOK) {
+        let m = n;
+        while (m >= 0 && cells[m] === EMPTY) { out.push({ from: sq, to: m, seq: null }); m = STEP[m][d]; }
+        if (m >= 0) {
+          const v = cells[m];
+          if (isUp(v) && colorOf(v) !== color && canCapture(ROOK, typeOf(v))) out.push({ from: sq, to: m, seq: [m] });
+        }
+      } else {
+        if (n < 0) continue;
+        const v = cells[n];
+        if (v === EMPTY) out.push({ from: sq, to: n, seq: null });
+        else if (isUp(v) && colorOf(v) !== color && canCapture(t, typeOf(v))) out.push({ from: sq, to: n, seq: [n] });
+      }
+    }
+  }
+
+  function genMoves(cells, color, out, fullChain) {
+    for (let sq = 0; sq < N; sq++) {
+      const v = cells[sq];
+      if (isUp(v) && colorOf(v) === color) genPieceMoves(cells, sq, out, fullChain);
+    }
+    return out;
+  }
+
+  // ───────────── 實際對局狀態 ─────────────
+  // cells：玩家看得到的盤面（蓋著的棋為 HIDDEN）；secret：蓋著的棋實際是什麼（電腦不會拿到這份資料）
+
+  function createState(o) {
+    o = o || {};
+    const cells = o.cells ? Array.from(o.cells) : new Array(N).fill(HIDDEN);
+    const secret = o.secret ? Array.from(o.secret) : new Array(N).fill(EMPTY);
+    for (let sq = 0; sq < N; sq++) if (cells[sq] !== HIDDEN) secret[sq] = EMPTY;
+    return {
+      cells,
+      secret,
+      ids: o.ids ? Array.from(o.ids) : cells.map((v, i) => (v === EMPTY ? -1 : i)),
+      toMove: o.toMove || 0,
+      playerColor: o.playerColor ? Array.from(o.playerColor) : [-1, -1],
+      noCap: o.noCap || 0,
+      captured: o.captured ? o.captured.map(a => Array.from(a)) : [[], []],
+      pendingChain: null,
+      lastMove: null,
+      result: null,
+      ply: 0
+    };
+  }
+
+  function newGame(rand) {
+    rand = rand || Math.random;
+    const codes = [];
+    for (let c = 0; c < 2; c++) for (let t = 0; t < 7; t++) for (let k = 0; k < COUNT[t]; k++) codes.push(c * 7 + t);
+    for (let i = codes.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      const tmp = codes[i]; codes[i] = codes[j]; codes[j] = tmp;
+    }
+    return createState({ secret: codes });
+  }
+
+  const cloneState = s => JSON.parse(JSON.stringify(s));
+
+  function legalActions(s) {
+    if (s.result) return [];
+    const color = s.playerColor[s.toMove];
+    if (s.pendingChain) {
+      const acts = [];
+      const t = cannonTarget(s.cells, s.pendingChain.sq, s.pendingChain.dir, color);
+      if (t >= 0) acts.push({ type: 'cap', from: s.pendingChain.sq, to: t });
+      acts.push({ type: 'stop' });
+      return acts;
+    }
+    const acts = [];
+    for (let sq = 0; sq < N; sq++) if (s.cells[sq] === HIDDEN) acts.push({ type: 'flip', sq });
+    if (color >= 0) {
+      for (const m of genMoves(s.cells, color, [], false)) acts.push({ type: m.seq ? 'cap' : 'move', from: m.from, to: m.to });
+    }
+    return acts;
+  }
+
+  function sameAction(a, b) {
+    if (!a || !b || a.type !== b.type) return false;
+    if (a.type === 'flip') return a.sq === b.sq;
+    if (a.type === 'stop') return true;
+    return a.from === b.from && a.to === b.to;
+  }
+
+  function aliveCount(s, color) {
+    let n = 0;
+    for (let sq = 0; sq < N; sq++) {
+      const v = s.cells[sq];
+      if (isUp(v) && colorOf(v) === color) n++;
+      else if (v === HIDDEN && colorOf(s.secret[sq]) === color) n++;
+    }
+    return n;
+  }
+
+  function movePiece(s, from, to) {
+    s.cells[to] = s.cells[from]; s.cells[from] = EMPTY;
+    s.ids[to] = s.ids[from]; s.ids[from] = -1;
+  }
+
+  // 輪到的一方開始走之前判定勝負：棋子被吃光、和局、無棋可走
+  function judge(s) {
+    const mover = s.toMove, color = s.playerColor[mover];
+    if (color >= 0 && aliveCount(s, color) === 0) return { winner: 1 - mover, loser: mover, reason: 'wipeout' };
+    if (s.noCap >= DRAW_LIMIT) return { winner: -1, loser: -1, reason: 'draw' };
+    if (legalActions(s).length === 0) return { winner: 1 - mover, loser: mover, reason: 'stalemate' };
+    return null;
+  }
+
+  function endTurn(s) {
+    s.pendingChain = null;
+    s.toMove = 1 - s.toMove;
+    s.ply++;
+    s.result = judge(s);
+  }
+
+  // 套用一個動作並回傳新狀態（不改動原狀態）。不合法的動作直接丟出錯誤，不默默略過
+  function applyAction(s, a) {
+    if (!legalActions(s).some(x => sameAction(x, a))) {
+      throw new Error('不合法的動作：' + JSON.stringify(a) + '（輪到玩家 ' + s.toMove + '）');
+    }
+    const n = cloneState(s);
+    const color = n.playerColor[n.toMove];
+    if (a.type === 'flip') {
+      const code = n.secret[a.sq];
+      if (!(code >= 0 && code < HIDDEN)) throw new Error('翻棋資料異常：第 ' + a.sq + ' 格的底牌是 ' + code);
+      n.cells[a.sq] = code; n.secret[a.sq] = EMPTY;
+      if (color < 0) {
+        n.playerColor[n.toMove] = colorOf(code);
+        n.playerColor[1 - n.toMove] = 1 - colorOf(code);
+      }
+      n.noCap++;
+      n.lastMove = { type: 'flip', sq: a.sq, code };
+      endTurn(n);
+    } else if (a.type === 'move') {
+      movePiece(n, a.from, a.to);
+      n.noCap++;
+      n.lastMove = { type: 'move', from: a.from, to: a.to };
+      endTurn(n);
+    } else if (a.type === 'cap') {
+      const victim = n.cells[a.to], attacker = n.cells[a.from];
+      n.captured[colorOf(victim)].push(victim);
+      const startFrom = n.pendingChain && n.lastMove ? n.lastMove.from : a.from;
+      movePiece(n, a.from, a.to);
+      n.noCap = 0;
+      n.lastMove = { type: 'cap', from: startFrom, to: a.to, code: victim };
+      if (typeOf(attacker) === CANNON) {
+        const d = dirBetween(a.from, a.to);
+        if (cannonTarget(n.cells, a.to, d, color) >= 0) {
+          n.pendingChain = { sq: a.to, dir: d };
+          return n;
+        }
+      }
+      endTurn(n);
+    } else if (a.type === 'stop') {
+      endTurn(n);
+    }
+    return n;
+  }
+
+  // 給電腦的資訊：只有看得到的盤面與「還沒翻出來的棋有哪些」，不含底牌位置
+  function buildInfo(s) {
+    const pool = new Array(14).fill(0);
+    for (let c = 0; c < 2; c++) for (let t = 0; t < 7; t++) pool[c * 7 + t] = COUNT[t];
+    let hidden = 0;
+    for (let sq = 0; sq < N; sq++) {
+      const v = s.cells[sq];
+      if (isUp(v)) pool[v]--;
+      else if (v === HIDDEN) hidden++;
+    }
+    for (const list of s.captured) for (const v of list) pool[v]--;
+    const total = pool.reduce((a, b) => a + b, 0);
+    if (pool.some(k => k < 0) || total !== hidden) {
+      throw new Error('盤面資料不一致：未翻棋子池 ' + JSON.stringify(pool) + '，蓋著的格數 ' + hidden);
+    }
+    return { cells: s.cells.slice(), pool, color: s.playerColor[s.toMove], noCap: s.noCap };
+  }
+
+  // ───────────── 電腦 AI ─────────────
+  // 期望值搜尋：走棋用 alpha-beta；翻棋是「機率節點」，依未翻棋子池的比例加權平均
+
+  function createSearcher(info) {
+    const cells = Int8Array.from(info.cells);
+    const pool = Int8Array.from(info.pool);
+    let poolTotal = 0, hiddenCount = 0, noCap = info.noCap, nodes = 0;
+    const mat = [0, 0], cnt = [0, 0];
+    for (let sq = 0; sq < N; sq++) {
+      const v = cells[sq];
+      if (isUp(v)) { mat[colorOf(v)] += VALUE[typeOf(v)]; cnt[colorOf(v)]++; }
+      else if (v === HIDDEN) hiddenCount++;
+    }
+    for (let code = 0; code < 14; code++) {
+      poolTotal += pool[code];
+      mat[colorOf(code)] += pool[code] * VALUE[typeOf(code)];
+      cnt[colorOf(code)] += pool[code];
+    }
+    const S = { deadline: Infinity };
+
+    function make(m) {
+      const piece = cells[m.from];
+      const rec = { piece, caps: null, noCap };
+      if (m.seq) {
+        rec.caps = [];
+        for (const t of m.seq) {
+          const v = cells[t];
+          rec.caps.push(v);
+          cells[t] = EMPTY;
+          mat[colorOf(v)] -= VALUE[typeOf(v)];
+          cnt[colorOf(v)]--;
+        }
+        noCap = 0;
+      } else noCap++;
+      cells[m.from] = EMPTY;
+      cells[m.to] = piece;
+      return rec;
+    }
+
+    function unmake(m, rec) {
+      cells[m.to] = EMPTY;
+      if (rec.caps) {
+        for (let i = 0; i < m.seq.length; i++) {
+          const v = rec.caps[i];
+          cells[m.seq[i]] = v;
+          mat[colorOf(v)] += VALUE[typeOf(v)];
+          cnt[colorOf(v)]++;
+        }
+      }
+      cells[m.from] = rec.piece;
+      noCap = rec.noCap;
+    }
+
+    function capValue(m) {
+      let v = 0;
+      for (const t of m.seq) v += VALUE[typeOf(cells[t])];
+      return v;
+    }
+
+    // 這一方現在能吃到的最大價值
+    function maxGain(color) {
+      let best = 0;
+      for (const m of genMoves(cells, color, [], true)) if (m.seq) { const v = capValue(m); if (v > best) best = v; }
+      return best;
+    }
+
+    // 追殺：子力領先時，鼓勵能吃掉對方棋的己方棋子靠近它（避免殘局繞圈拖到和局）
+    function chase(color) {
+      if (mat[color] <= mat[1 - color]) return 0;
+      let bonus = 0;
+      for (let t = 0; t < N; t++) {
+        const v = cells[t];
+        if (!isUp(v) || colorOf(v) === color) continue;
+        let best = 99;
+        for (let s = 0; s < N; s++) {
+          const p = cells[s];
+          if (!isUp(p) || colorOf(p) !== color) continue;
+          const pt = typeOf(p);
+          if (pt !== CANNON && !canCapture(pt, typeOf(v))) continue;
+          const d = Math.abs((s >> 3) - (t >> 3)) + Math.abs((s & 7) - (t & 7));
+          if (d < best) best = d;
+        }
+        if (best < 99) bonus += (10 - best) * 0.8;
+      }
+      return bonus;
+    }
+
+    // 靜態評估（站在 color 這一方、輪到 color 走）
+    function evaluate(color) {
+      return mat[color] - mat[1 - color] + 0.5 * maxGain(color) - 0.25 * maxGain(1 - color) +
+        chase(color) - chase(1 - color);
+    }
+
+    // 翻棋格挑選：旁邊有翻開棋子的格子比較有戰術意義；另外保留一格「孤立」格代表其他平凡的翻法
+    function flipSquares(limit) {
+      const list = [];
+      for (let sq = 0; sq < N; sq++) {
+        if (cells[sq] !== HIDDEN) continue;
+        let rel = 0;
+        for (let d = 0; d < 4; d++) { const n = STEP[sq][d]; if (n >= 0 && isUp(cells[n])) rel++; }
+        list.push({ sq, rel });
+      }
+      if (limit >= list.length) return list.map(x => x.sq);
+      list.sort((a, b) => b.rel - a.rel);
+      const out = list.slice(0, limit - 1).map(x => x.sq);
+      const iso = list.find(x => x.rel === 0 && out.indexOf(x.sq) < 0);
+      out.push(iso ? iso.sq : list[limit - 1].sq);
+      return out;
+    }
+
+    function flipValue(sq, depth, color, ply) {
+      const total = poolTotal, oldNo = noCap;
+      let ev = 0;
+      hiddenCount--; poolTotal--; noCap++;
+      for (let code = 0; code < 14; code++) {
+        const k = pool[code];
+        if (!k) continue;
+        pool[code]--; cells[sq] = code;
+        const v = -search(depth - 1, 1 - color, -INF, INF, true, ply + 1);
+        pool[code]++;
+        ev += (k / total) * v;
+      }
+      cells[sq] = HIDDEN; hiddenCount++; poolTotal++; noCap = oldNo;
+      return ev;
+    }
+
+    function orderMoves(moves) {
+      for (const m of moves) m.k = m.seq ? 1000 + capValue(m) - VALUE[typeOf(cells[m.from])] / 100 : 0;
+      moves.sort((a, b) => b.k - a.k);
+    }
+
+    // chanceUsed：這條路線已經展開過一次翻棋機率，之後的翻棋只用靜態估值代表，控制運算量
+    function search(depth, color, alpha, beta, chanceUsed, ply) {
+      if ((++nodes & 1023) === 0 && Date.now() > S.deadline) throw TIMEOUT;
+      const opp = 1 - color;
+      if (cnt[color] === 0) return -WIN + ply;
+      if (cnt[opp] === 0) return WIN - ply;
+      if (noCap >= DRAW_LIMIT) return 0;
+      if (depth <= 0) return evaluate(color);
+      const moves = genMoves(cells, color, [], true);
+      if (moves.length === 0 && hiddenCount === 0) return -WIN + ply;
+      orderMoves(moves);
+      let best = -INF, i = 0;
+      // 先算吃子
+      for (; i < moves.length && moves[i].seq; i++) {
+        const m = moves[i], rec = make(m);
+        const v = -search(depth - 1, opp, -beta, -alpha, chanceUsed, ply + 1);
+        unmake(m, rec);
+        if (v > best) { best = v; if (v > alpha) alpha = v; if (alpha >= beta) return best; }
+      }
+      // 再算翻棋
+      if (hiddenCount > 0) {
+        let v;
+        if (chanceUsed) v = -evaluate(opp);
+        else {
+          v = -INF;
+          for (const sq of flipSquares(FLIP_LIMIT)) { const fv = flipValue(sq, depth, color, ply); if (fv > v) v = fv; }
+        }
+        if (v > best) { best = v; if (v > alpha) alpha = v; if (alpha >= beta) return best; }
+      }
+      // 最後是一般走棋
+      for (; i < moves.length; i++) {
+        const m = moves[i], rec = make(m);
+        const v = -search(depth - 1, opp, -beta, -alpha, chanceUsed, ply + 1);
+        unmake(m, rec);
+        if (v > best) { best = v; if (v > alpha) alpha = v; if (alpha >= beta) return best; }
+      }
+      return best;
+    }
+
+    S.rootMoves = function (color) {
+      const list = genMoves(cells, color, [], true);
+      for (let sq = 0; sq < N; sq++) if (cells[sq] === HIDDEN) list.push({ flip: sq });
+      return list;
+    };
+    S.rootValue = function (m, color, depth, alpha) {
+      if (m.flip !== undefined) return flipValue(m.flip, depth, color, 0);
+      const rec = make(m);
+      try { return -search(depth - 1, 1 - color, -INF, -alpha, false, 1); }
+      finally { unmake(m, rec); }
+    };
+    S.nodes = () => nodes;
+    return S;
+  }
+
+  function moveToActions(m) {
+    if (m.flip !== undefined) return [{ type: 'flip', sq: m.flip }];
+    if (!m.seq) return [{ type: 'move', from: m.from, to: m.to }];
+    const acts = [];
+    let from = m.from;
+    for (const t of m.seq) { acts.push({ type: 'cap', from, to: t }); from = t; }
+    return acts;
+  }
+
+  // opts：{ level, seed, timeMs?, maxDepth? }；回傳 { actions, depth, nodes, score }
+  function think(info, opts) {
+    opts = opts || {};
+    const cfg = LEVELS[opts.level] || LEVELS.normal;
+    const rand = makeRng(opts.seed || 1);
+    const timeMs = opts.timeMs != null ? opts.timeMs : cfg.timeMs;
+    const maxDepth = opts.maxDepth != null ? opts.maxDepth : cfg.maxDepth;
+    const color = info.color;
+
+    if (color < 0) {
+      // 還沒決定顏色，只能翻棋：隨便翻一顆
+      const hidden = [];
+      for (let sq = 0; sq < N; sq++) if (info.cells[sq] === HIDDEN) hidden.push(sq);
+      return { actions: [{ type: 'flip', sq: hidden[Math.floor(rand() * hidden.length)] }], depth: 0, nodes: 0, score: 0 };
+    }
+
+    const S = createSearcher(info);
+    let root = S.rootMoves(color);
+    if (root.length === 0) throw new Error('電腦沒有任何可走的動作（遊戲應該已經結束）');
+    if (root.length === 1) return { actions: moveToActions(root[0]), depth: 0, nodes: 0, score: 0 };
+
+    const start = Date.now();
+    const exact = cfg.noise > 0 || cfg.randomness > 0;
+    let scored = null, doneDepth = 0;
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      // 第一層一定算完，之後才受時間限制
+      S.deadline = depth === 1 ? Infinity : start + timeMs;
+      try {
+        let alpha = -INF;
+        const cur = root.map(m => {
+          const v = S.rootValue(m, color, depth, exact ? -INF : alpha);
+          if (v > alpha) alpha = v;
+          return { m, v };
+        });
+        scored = cur;
+        doneDepth = depth;
+      } catch (e) {
+        if (e === TIMEOUT) break;
+        throw e;
+      }
+      scored.sort((a, b) => b.v - a.v);
+      root = scored.map(x => x.m);
+      if (Math.abs(scored[0].v) > WIN / 2) break;
+      if (Date.now() - start > timeMs) break;
+    }
+
+    let pick;
+    if (cfg.randomness > 0 && rand() < cfg.randomness) {
+      pick = scored[Math.floor(rand() * scored.length)];
+    } else {
+      let bestV = -Infinity;
+      for (const x of scored) {
+        const v = x.v + (cfg.noise ? (rand() * 2 - 1) * cfg.noise : 0);
+        if (v > bestV) { bestV = v; pick = x; }
+      }
+    }
+    return { actions: moveToActions(pick.m), depth: doneDepth, nodes: S.nodes(), score: Math.round(pick.v) };
+  }
+
+  return {
+    COLS, ROWS, N, EMPTY, HIDDEN, KING, ADV, ELE, ROOK, HORSE, CANNON, PAWN, NAMES, DRAW_LIMIT, LEVELS,
+    colorOf, typeOf, nameOf, makeRng, cannonTarget,
+    createState, newGame, legalActions, applyAction, sameAction, aliveCount, buildInfo, think
+  };
+})();
+</script>
+
+<!-- 畫面與操作 -->
+<script>
+(function () {
+  'use strict';
+  const E = DanqiEngine;
+  const $ = id => document.getElementById(id);
+  const COLOR_NAME = ['紅', '黑'];
+  const LEVEL_NAME = { easy: '簡單', normal: '普通', hard: '困難' };
+  const AI_MIN_DELAY = 500, AI_STEP_DELAY = 420;
+
+  let game = null;
+  const pieceEls = new Map();
+  const cellEls = [];
+
+  // ───── 提示訊息 ─────
+  function notice(msg, isErr) {
+    const n = $('notice');
+    n.textContent = msg;
+    n.className = 'notice' + (isErr ? ' err' : '');
+    n.hidden = false;
+  }
+
+  // ───── 儲存偏好（只存音效開關） ─────
+  function loadPref(key, def) {
+    try { const v = localStorage.getItem('danqi.' + key); return v === null ? def : v; } catch (e) { return def; }
+  }
+  function savePref(key, v) {
+    try { localStorage.setItem('danqi.' + key, v); } catch (e) { /* 無痕模式等情況存不了，不影響遊戲 */ }
+  }
+
+  // ───── 音效（用 WebAudio 即時合成，不需要音效檔） ─────
+  let soundOn = loadPref('sound', '1') === '1';
+  let actx = null;
+  function audio() {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function tone(freq, dur, type, vol, delay) {
+    const ctx = audio(), t0 = ctx.currentTime + (delay || 0);
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  function knock(dur, vol, freq) {
+    const ctx = audio(), len = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate), data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = 1.2;
+    g.gain.value = vol;
+    src.buffer = buf; src.connect(f).connect(g).connect(ctx.destination); src.start();
+  }
+  function sound(kind) {
+    if (!soundOn) return;
+    try {
+      if (kind === 'flip') { knock(0.07, 0.9, 2200); tone(660, 0.08, 'triangle', 0.08); }
+      else if (kind === 'move') { knock(0.09, 1.2, 900); }
+      else if (kind === 'cap') { knock(0.14, 1.6, 500); tone(150, 0.18, 'sine', 0.25); }
+      else if (kind === 'win') { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, 'triangle', 0.15, i * 0.12)); }
+      else if (kind === 'lose') { [392, 330, 262].forEach((f, i) => tone(f, 0.35, 'triangle', 0.15, i * 0.16)); }
+      else if (kind === 'draw') { tone(440, 0.4, 'triangle', 0.12); tone(440, 0.4, 'triangle', 0.12, 0.25); }
+    } catch (e) {
+      console.warn('[暗棋] 音效無法播放：', e);
+    }
+  }
+  function syncSoundBtn() {
+    $('btnSound').textContent = '音效：' + (soundOn ? '開' : '關');
+    $('btnSound').setAttribute('aria-pressed', String(soundOn));
+  }
+
+  // ───── 電腦運算：放在背景執行緒，避免畫面卡住 ─────
+  let worker = null, reqId = 0;
+  const pending = new Map();
+  function runOnMain(job) {
+    setTimeout(() => {
+      try { job.resolve(E.think(job.info, job.opts)); } catch (e) { job.reject(e); }
+    }, 30);
+  }
+  function fallbackToMain(reason) {
+    console.warn('[暗棋] 背景執行緒無法使用，改在主畫面計算。原因：', reason);
+    notice('提醒：此瀏覽器無法使用背景運算，電腦改在主畫面思考，思考時畫面可能短暫停頓。');
+    if (worker) { try { worker.terminate(); } catch (e) { /* 已經壞了就算了 */ } }
+    worker = null;
+    for (const job of pending.values()) runOnMain(job);
+    pending.clear();
+  }
+  function initWorker() {
+    try {
+      const src = $('engine').textContent +
+        '\nself.onmessage = function (e) { var d = e.data;' +
+        ' try { self.postMessage({ id: d.id, ok: true, res: DanqiEngine.think(d.info, d.opts) }); }' +
+        ' catch (err) { self.postMessage({ id: d.id, ok: false, msg: String(err && err.message || err) }); } };';
+      const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      worker = new Worker(url);
+      worker.onmessage = e => {
+        const job = pending.get(e.data.id);
+        if (!job) return;
+        pending.delete(e.data.id);
+        if (e.data.ok) job.resolve(e.data.res);
+        else job.reject(new Error(e.data.msg));
+      };
+      worker.onerror = e => { e.preventDefault(); fallbackToMain(e.message || '背景執行緒錯誤'); };
+    } catch (err) {
+      fallbackToMain(err && err.message || err);
+    }
+  }
+  function requestAI(info, opts) {
+    return new Promise((resolve, reject) => {
+      const job = { info, opts, resolve, reject };
+      if (worker) {
+        const id = ++reqId;
+        pending.set(id, job);
+        worker.postMessage({ id, info, opts });
+      } else runOnMain(job);
+    });
+  }
+
+  // ───── 棋盤 DOM ─────
+  function buildBoard() {
+    const cells = $('cells');
+    for (let sq = 0; sq < E.N; sq++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cell';
+      b.addEventListener('click', () => onCell(sq));
+      cells.appendChild(b);
+      cellEls.push(b);
+    }
+  }
+  function createPiece(id) {
+    const p = document.createElement('div');
+    p.className = 'piece';
+    p.innerHTML = '<div class="inner"><div class="face back"></div><div class="face front"></div></div>';
+    $('pieces').appendChild(p);
+    pieceEls.set(id, p);
+    return p;
+  }
+  function placePiece(p, sq) {
+    const tf = 'translate(' + (sq % E.COLS) * 100 + '%,' + Math.floor(sq / E.COLS) * 100 + '%)';
+    if (p.style.transform && p.style.transform !== tf) {
+      p.classList.add('moving');
+      clearTimeout(p._mv);
+      p._mv = setTimeout(() => p.classList.remove('moving'), 320);
+    }
+    p.style.transform = tf;
+  }
+  function setFace(p, v) {
+    const front = p.querySelector('.front');
+    if (v === E.HIDDEN) {
+      p.classList.remove('up');
+      front.textContent = '';
+      delete p.dataset.color;
+    } else {
+      front.textContent = E.nameOf(v);
+      p.dataset.color = String(E.colorOf(v));
+      p.classList.add('up');
+    }
+  }
+  function clearPieces() {
+    for (const p of pieceEls.values()) p.remove();
+    pieceEls.clear();
+  }
+
+  // ───── 名稱 ─────
+  function playerName(i) {
+    if (game.mode === 'ai') return i === game.human ? '你' : '電腦';
+    return i === 0 ? '玩家一' : '玩家二';
+  }
+  function colorLabel(i) {
+    const c = game.state.playerColor[i];
+    return c < 0 ? '未定' : COLOR_NAME[c];
+  }
+
+  function isHumanTurn() {
+    const s = game.state;
+    return !s.result && !game.thinking && (game.mode === 'pvp' || s.toMove === game.human);
+  }
+
+  // ───── 繪製 ─────
+  function render() {
+    const s = game.state;
+
+    const present = new Set();
+    for (let sq = 0; sq < E.N; sq++) {
+      const id = s.ids[sq];
+      if (id < 0) continue;
+      present.add(id);
+      const p = pieceEls.get(id) || createPiece(id);
+      p.classList.remove('dead');
+      placePiece(p, sq);
+      setFace(p, s.cells[sq]);
+    }
+    for (const [id, p] of pieceEls) {
+      if (present.has(id)) continue;
+      pieceEls.delete(id);
+      p.classList.add('dead');
+      setTimeout(() => p.remove(), 380);
+    }
+
+    // 可走位置
+    const targets = new Map();
+    let selected = game.selected;
+    if (s.pendingChain) selected = s.pendingChain.sq;
+    if (selected != null && isHumanTurn()) {
+      for (const a of E.legalActions(s)) {
+        if ((a.type === 'move' || a.type === 'cap') && a.from === selected) targets.set(a.to, a.type === 'cap');
+      }
+    }
+    const lm = s.lastMove;
+    const last = new Set(lm ? (lm.type === 'flip' ? [lm.sq] : [lm.from, lm.to]) : []);
+    for (let sq = 0; sq < E.N; sq++) {
+      const c = cellEls[sq];
+      c.classList.toggle('selected', sq === selected && !s.result);
+      c.classList.toggle('target', targets.has(sq));
+      c.classList.toggle('capture', targets.get(sq) === true);
+      c.classList.toggle('last', last.has(sq));
+      c.setAttribute('aria-label', cellLabel(s, sq));
+    }
+
+    renderPlayer(0); renderPlayer(1);
+
+    $('status').innerHTML = statusText();
+    $('noCap').textContent = '連續未吃子：' + s.noCap + ' / ' + E.DRAW_LIMIT + ' 步';
+    $('levelTag').textContent = game.mode === 'ai' ? '電腦難度：' + LEVEL_NAME[game.level] : '兩人對戰';
+    $('btnStop').hidden = !(s.pendingChain && isHumanTurn());
+    $('btnUndo').disabled = !canUndo();
+    $('btnResultUndo').disabled = !canUndo();
+  }
+
+  function cellLabel(s, sq) {
+    const pos = '第 ' + (Math.floor(sq / E.COLS) + 1) + ' 列第 ' + (sq % E.COLS + 1) + ' 行：';
+    const v = s.cells[sq];
+    if (v === E.EMPTY) return pos + '空格';
+    if (v === E.HIDDEN) return pos + '蓋著的棋';
+    return pos + COLOR_NAME[E.colorOf(v)] + E.nameOf(v);
+  }
+
+  function renderPlayer(i) {
+    const s = game.state, box = $('p' + (i === game.bottom ? 0 : 1));
+    const c = s.playerColor[i];
+    box.classList.toggle('active', !s.result && s.toMove === i);
+    const lost = c < 0 ? [] : s.captured[1 - c];
+    const think = game.thinking && s.toMove === i ? '<span class="thinking">思考中…</span>' : '';
+    box.innerHTML =
+      '<span class="who"><span class="chip ' + (c < 0 ? '' : 'c' + c) + '"></span>' + playerName(i) +
+      '（' + colorLabel(i) + '）' + think + '</span>' +
+      '<span class="tray" title="已吃掉的棋子">' +
+      lost.map(v => '<i class="c' + E.colorOf(v) + '">' + E.nameOf(v) + '</i>').join('') + '</span>';
+  }
+
+  function statusText() {
+    const s = game.state;
+    if (s.result) return resultTitle();
+    const who = playerName(s.toMove);
+    if (game.thinking) return '電腦思考中…';
+    if (s.pendingChain) return '<b>連吃中</b>：點紅圈繼續吃，或按「停止連吃」';
+    if (s.playerColor[s.toMove] < 0) return '輪到<b>' + who + '</b>：請翻開任一顆棋，翻到的顏色就是' + (who === '你' ? '你' : '他') + '的';
+    return '輪到<b>' + who + '</b>（' + colorLabel(s.toMove) + '）：翻一顆棋，或走一顆自己的棋';
+  }
+
+  function resultTitle() {
+    const r = game.state.result;
+    if (r.winner < 0) return '和局';
+    if (game.mode === 'ai') return r.winner === game.human ? '你贏了！' : '電腦獲勝';
+    return playerName(r.winner) + '（' + colorLabel(r.winner) + '）獲勝';
+  }
+  function resultReason() {
+    const r = game.state.result;
+    if (r.reason === 'draw') return '雙方連續 ' + E.DRAW_LIMIT + ' 步都沒有吃子';
+    const loser = playerName(r.loser);
+    if (r.reason === 'wipeout') return loser + '的棋子全部被吃光了';
+    return loser + '已經無棋可走';
+  }
+
+  let resultTimer = null;
+  function showResult() {
+    const r = game.state.result;
+    clearTimeout(resultTimer);
+    resultTimer = setTimeout(() => {
+      $('resultTitle').textContent = resultTitle();
+      $('resultReason').textContent = resultReason();
+      $('resultBox').hidden = false;
+    }, 600);
+    if (r.winner < 0) sound('draw');
+    else if (game.mode === 'ai' && r.winner !== game.human) sound('lose');
+    else sound('win');
+  }
+  function hideResult() {
+    clearTimeout(resultTimer);
+    $('resultBox').hidden = true;
+  }
+
+  // ───── 操作 ─────
+  function say(msg) { $('status').textContent = msg; }
+
+  function onCell(sq) {
+    if (!game || !isHumanTurn()) return;
+    const s = game.state, acts = E.legalActions(s);
+    if (s.pendingChain) {
+      const a = acts.find(x => x.type === 'cap' && x.to === sq);
+      if (a) doAction(a);
+      else say('連吃中：點紅圈繼續吃，或按「停止連吃」結束這一回合');
+      return;
+    }
+    if (game.selected != null) {
+      const a = acts.find(x => (x.type === 'move' || x.type === 'cap') && x.from === game.selected && x.to === sq);
+      if (a) { doAction(a); return; }
+    }
+    const v = s.cells[sq];
+    if (v === E.HIDDEN) { doAction({ type: 'flip', sq }); return; }
+    if (v >= 0 && E.colorOf(v) === s.playerColor[s.toMove]) {
+      if (game.selected === sq) { game.selected = null; render(); return; }
+      game.selected = sq;
+      render();
+      if (!acts.some(x => x.from === sq)) say('這顆棋現在沒有地方可以走');
+      return;
+    }
+    if (v >= 0 && game.selected == null) { say('那是對方的棋，請先點選自己的棋'); return; }
+    game.selected = null;
+    render();
+  }
+
+  function doAction(a) {
+    const s = game.state;
+    if (!s.pendingChain) game.history.push(s); // 記下這一回合開始時的盤面，供悔棋
+    try {
+      game.state = E.applyAction(s, a);
+    } catch (e) {
+      console.error('[暗棋] 套用動作失敗：', e);
+      notice('程式錯誤：' + e.message, true);
+      if (!s.pendingChain) game.history.pop();
+      return;
+    }
+    sound(a.type === 'stop' ? '' : a.type);
+    game.selected = null;
+    render();
+    afterAction();
+  }
+
+  function afterAction() {
+    if (game.state.result) { showResult(); return; }
+    maybeAI();
+  }
+
+  function maybeAI() {
+    const s = game.state;
+    if (game.mode !== 'ai' || s.result || s.toMove === game.human || game.thinking) return;
+    game.thinking = true;
+    render();
+    const token = ++game.token, started = performance.now();
+    let info;
+    try { info = E.buildInfo(s); } catch (e) { aiFailed(e); return; }
+    requestAI(info, { level: game.level, seed: (Math.random() * 4294967296) >>> 0 }).then(res => {
+      if (token !== game.token) return;
+      const wait = Math.max(0, AI_MIN_DELAY - (performance.now() - started));
+      setTimeout(() => playAI(res.actions, token), wait);
+    }, err => { if (token === game.token) aiFailed(err); });
+  }
+
+  function aiFailed(err) {
+    console.error('[暗棋] 電腦思考失敗：', err);
+    game.thinking = false;
+    notice('電腦思考時發生錯誤：' + (err && err.message || err) + '。可以按「悔棋」或「重新開始」。', true);
+    render();
+  }
+
+  function playAI(actions, token) {
+    if (token !== game.token) return;
+    if (!actions || !actions.length) { aiFailed(new Error('電腦沒有回傳任何動作')); return; }
+    game.history.push(game.state);
+    let i = 0;
+    const step = () => {
+      if (token !== game.token) return;
+      const s = game.state;
+      try {
+        if (i < actions.length) {
+          const a = actions[i++];
+          game.state = E.applyAction(s, a); // 不合法會丟錯
+          sound(a.type);
+          render();
+          setTimeout(step, AI_STEP_DELAY);
+          return;
+        }
+        if (s.pendingChain) game.state = E.applyAction(s, { type: 'stop' });
+      } catch (e) {
+        aiFailed(e);
+        return;
+      }
+      game.thinking = false;
+      render();
+      afterAction();
+    };
+    step();
+  }
+
+  function canUndo() {
+    if (!game || game.thinking || !game.history.length) return false;
+    if (game.mode === 'pvp') return true;
+    return game.history.some(h => h.toMove === game.human);
+  }
+
+  function undo() {
+    if (!canUndo()) return;
+    game.token++;
+    if (game.mode === 'pvp') game.state = game.history.pop();
+    else {
+      let s;
+      do { s = game.history.pop(); } while (s.toMove !== game.human);
+      game.state = s;
+    }
+    game.selected = null;
+    hideResult();
+    render();
+  }
+
+  // ───── 開局 ─────
+  function readOption(name) {
+    return document.querySelector('input[name="' + name + '"]:checked').value;
+  }
+
+  function startGame() {
+    const mode = readOption('mode');
+    const level = readOption('level');
+    let first = readOption('first');
+    if (first === 'random') first = Math.random() < 0.5 ? 'human' : 'ai';
+    const human = mode === 'ai' && first === 'ai' ? 1 : 0;
+    if (game) game.token++;
+    game = {
+      mode, level, human,
+      bottom: mode === 'ai' ? human : 0,
+      state: E.newGame(),
+      history: [], selected: null, thinking: false, token: 0
+    };
+    clearPieces();
+    hideResult();
+    $('menu').hidden = true;
+    $('game').hidden = false;
+    render();
+    maybeAI();
+  }
+
+  function backToMenu() {
+    if (game) game.token++;
+    hideResult();
+    $('game').hidden = true;
+    $('menu').hidden = false;
+  }
+
+  function syncMenu() {
+    const ai = readOption('mode') === 'ai';
+    $('optLevel').hidden = !ai;
+    $('optFirst').hidden = !ai;
+  }
+
+  // ───── 綁定事件 ─────
+  buildBoard();
+  syncSoundBtn();
+  syncMenu();
+  initWorker();
+  document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', syncMenu));
+  $('btnStart').addEventListener('click', startGame);
+  $('btnRestart').addEventListener('click', () => {
+    if (!game.state.result && game.state.ply > 0 && !confirm('確定要放棄這一局，重新開始嗎？')) return;
+    startGame();
+  });
+  $('btnMenu').addEventListener('click', () => {
+    if (!game.state.result && game.state.ply > 0 && !confirm('確定要離開這一局嗎？')) return;
+    backToMenu();
+  });
+  $('btnUndo').addEventListener('click', undo);
+  $('btnStop').addEventListener('click', () => { if (isHumanTurn() && game.state.pendingChain) doAction({ type: 'stop' }); });
+  $('btnResultUndo').addEventListener('click', undo);
+  $('btnResultAgain').addEventListener('click', startGame);
+  $('btnResultMenu').addEventListener('click', backToMenu);
+  $('btnRules').addEventListener('click', () => { $('rulesBox').hidden = false; });
+  $('btnRulesClose').addEventListener('click', () => { $('rulesBox').hidden = true; });
+  $('rulesBox').addEventListener('click', e => { if (e.target === $('rulesBox')) $('rulesBox').hidden = true; });
+  $('btnSound').addEventListener('click', () => {
+    soundOn = !soundOn;
+    savePref('sound', soundOn ? '1' : '0');
+    syncSoundBtn();
+    if (soundOn) sound('move');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') $('rulesBox').hidden = true;
+  });
+})();
+</script>
+</body>
+</html>
