@@ -14,10 +14,11 @@ function pos(pieces, opts = {}) {
     if (Array.isArray(v)) { cells[sq(r, c)] = HIDDEN; secret[sq(r, c)] = v[1]; }
     else cells[sq(r, c)] = v;
   }
-  return E.createState({ cells, secret, playerColor: opts.pc || [0, 1], toMove: opts.toMove || 0, noCap: opts.noCap || 0 });
+  return E.createState({ cells, secret, playerColor: opts.pc || [0, 1], toMove: opts.toMove || 0, noCap: opts.noCap || 0, rules: opts.rules });
 }
 // 殘局測試盤面湊不滿 32 顆，直接組電腦資料（沒有蓋著的棋，未翻池為空）
-const endInfo = s => ({ cells: s.cells.slice(), pool: new Array(14).fill(0), color: s.playerColor[s.toMove], noCap: s.noCap });
+const endInfo = s => ({ cells: s.cells.slice(), pool: new Array(14).fill(0), color: s.playerColor[s.toMove], noCap: s.noCap, rules: s.rules });
+const SAME_ONLY = { chainReverse: false };
 const targetsOf = (s, from) => E.legalActions(s).filter(a => a.from === from).map(a => a.type + ':' + a.to).sort();
 
 let pass = 0, fail = 0;
@@ -57,7 +58,7 @@ test('炮中間隔兩顆以上不能吃、跳過去碰到自己棋不能吃', ()
   assert.ok(!t.includes('cap:' + sq(0, 3)), '隔兩顆不能吃');
   assert.ok(!t.some(x => x === 'cap:' + sq(2, 0)), '不能吃自己的棋');
 });
-test('炮連吃：吃完可選擇繼續或停止，只能同方向', () => {
+test('炮連吃：吃完可選擇繼續或停止，不能轉 90 度', () => {
   // 炮(0,0) 屏(0,1) 黑卒(0,2) 屏(0,3) 黑將(0,4)；(0,2) 往下：屏(1,2) 黑士(2,2) ← 轉彎方向不可以
   const s0 = pos([[0, 0, red(C)], [0, 1, ['H', red(P)]], [0, 2, black(P)], [0, 3, ['H', red(P)]], [0, 4, black(K)],
     [1, 2, ['H', red(P)]], [2, 2, black(A)], [3, 7, black(P)]]);
@@ -65,7 +66,7 @@ test('炮連吃：吃完可選擇繼續或停止，只能同方向', () => {
   assert.ok(s.pendingChain, '應進入連吃狀態');
   assert.strictEqual(s.toMove, 0, '連吃中還是同一方');
   const acts = E.legalActions(s).map(a => a.type + (a.to !== undefined ? ':' + a.to : '')).sort();
-  assert.deepStrictEqual(acts, ['cap:' + sq(0, 4), 'stop'], '只能同方向繼續吃將或停止，不能轉彎吃士');
+  assert.deepStrictEqual(acts, ['cap:' + sq(0, 4), 'stop'], '只能沿同一直線繼續吃將或停止，不能轉彎吃士');
   const stopped = E.applyAction(s, { type: 'stop' });
   assert.strictEqual(stopped.toMove, 1, '停止後換對方');
   const cont = E.applyAction(s, { type: 'cap', from: sq(0, 2), to: sq(0, 4) });
@@ -73,6 +74,51 @@ test('炮連吃：吃完可選擇繼續或停止，只能同方向', () => {
   assert.strictEqual(cont.cells[sq(0, 4)], red(C));
   assert.strictEqual(cont.cells[sq(0, 2)], EMPTY);
   assert.strictEqual(cont.captured[1].length, 2);
+});
+// 回頭連吃的標準盤面：黑將(0,0) 空 紅炮(0,2) 屏(0,3) 黑士(0,4)
+// 炮往右跳吃士 → 回頭往左：跳過同一個屏、經過自己空出來的 (0,2)，吃到 (0,0) 的將
+const reversePos = rules => pos([[0, 0, black(K)], [0, 2, red(C)], [0, 3, ['H', red(P)]], [0, 4, black(A)], [3, 7, black(P)], [3, 0, red(K)]], { rules });
+test('預設規則：炮連吃可以回頭（反方向）', () => {
+  const s0 = reversePos();
+  assert.strictEqual(s0.rules.chainReverse, true, '預設應允許回頭');
+  const s = E.applyAction(s0, { type: 'cap', from: sq(0, 2), to: sq(0, 4) });
+  assert.ok(s.pendingChain, '回頭還能吃，應進入連吃狀態');
+  const acts = E.legalActions(s).map(a => a.type + (a.to !== undefined ? ':' + a.to : '')).sort();
+  assert.deepStrictEqual(acts, ['cap:' + sq(0, 0), 'stop']);
+  const done = E.applyAction(s, { type: 'cap', from: sq(0, 4), to: sq(0, 0) });
+  assert.strictEqual(done.cells[sq(0, 0)], red(C));
+  assert.strictEqual(done.cells[sq(0, 4)], EMPTY);
+  assert.strictEqual(done.cells[sq(0, 2)], EMPTY);
+  assert.strictEqual(done.captured[1].length, 2);
+  assert.strictEqual(done.toMove, 1, '沒得再吃就結束回合');
+});
+test('規則改成只能同方向：不能回頭', () => {
+  const s = E.applyAction(reversePos(SAME_ONLY), { type: 'cap', from: sq(0, 2), to: sq(0, 4) });
+  assert.strictEqual(s.pendingChain, null, '同方向沒得吃就不該進入連吃');
+  assert.strictEqual(s.toMove, 1);
+});
+// 來回連吃盤面（列 0）：黑士(0,0) 空 黑象(0,2) 紅炮(0,3) 屏(0,4) 黑馬(0,5) 黑車(0,6) 空
+//   右吃(0,5) → 回頭左吃(0,2)（經過空出來的(0,3)）→ 再右吃(0,6)（經過空出來的(0,5)）→ 再左吃(0,0)
+const pingPongPos = rules => pos([[0, 0, black(A)], [0, 2, black(EL)], [0, 3, red(C)], [0, 4, ['H', red(P)]], [0, 5, black(H)], [0, 6, black(R)],
+  [3, 7, black(P)], [3, 0, red(K)]], { rules });
+test('回頭連吃可以來回不限次數（同一條直線上）', () => {
+  let s = pingPongPos();
+  for (const [from, to] of [[3, 5], [5, 2], [2, 6], [6, 0]]) {
+    assert.ok(E.legalActions(s).some(a => a.type === 'cap' && a.from === sq(0, from) && a.to === sq(0, to)), '應能從 ' + from + ' 吃到 ' + to);
+    s = E.applyAction(s, { type: 'cap', from: sq(0, from), to: sq(0, to) });
+  }
+  assert.strictEqual(s.captured[1].length, 4, '四跳吃掉四顆');
+  assert.strictEqual(s.cells[sq(0, 0)], red(C));
+  assert.strictEqual(s.toMove, 1, '吃完沒得再跳，回合結束');
+});
+test('電腦也會照規則走來回連吃；改成只能同方向時就不會', () => {
+  const r = E.think(endInfo(pingPongPos()), { level: 'hard', seed: 1, timeMs: 600 });
+  assert.deepStrictEqual(r.actions.map(a => a.to), [5, 2, 6, 0].map(c => sq(0, c)), '預設規則下應一路吃四顆，實際：' + JSON.stringify(r.actions));
+  let s = pingPongPos();
+  for (const a of r.actions) s = E.applyAction(s, a);   // 每一跳都要被實際規則接受
+  const r2 = E.think(endInfo(pingPongPos(SAME_ONLY)), { level: 'hard', seed: 1, timeMs: 600 });
+  assert.ok(r2.actions.length <= 1, '只能同方向時最多吃一顆，實際：' + JSON.stringify(r2.actions));
+  assert.ok(E.buildInfo(E.newGame(E.makeRng(1), SAME_ONLY)).rules.chainReverse === false, '規則選項要傳給電腦');
 });
 test('炮不吃子時只能走一格', () => {
   const s = pos([[1, 3, red(C)], [3, 7, black(P)]]);
@@ -144,7 +190,7 @@ test('不合法的動作會丟出錯誤，不會默默接受', () => {
 console.log('【電腦 AI】');
 test('電腦拿不到底牌：給它的資料沒有 secret', () => {
   const info = E.buildInfo(E.newGame(E.makeRng(3)));
-  assert.deepStrictEqual(Object.keys(info).sort(), ['cells', 'color', 'noCap', 'pool']);
+  assert.deepStrictEqual(Object.keys(info).sort(), ['cells', 'color', 'noCap', 'pool', 'rules']);
   assert.ok(info.cells.every(v => v === HIDDEN));
 });
 test('電腦不偷看：只換底牌位置，電腦的決定完全一樣', () => {

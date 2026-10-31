@@ -107,6 +107,10 @@
   .card .row { display: flex; gap: 22px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
   .verdict { font-family: var(--serif); font-weight: 900; font-size: clamp(44px, 11vw, 76px); margin: 10px 0 6px; }
   .card input[type=range] { width: 200px; accent-color: var(--red); }
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
+  .switch input { width: 20px; height: 20px; accent-color: var(--red); }
+  .card .hint { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .card .hint.on { color: var(--red); font-weight: 700; }
   .note { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; font-size: 14px; z-index: 60; max-width: 92vw; }
 
   @media (max-width: 860px) {
@@ -193,7 +197,11 @@
       <dt><span class="tag">每回合</span></dt><dd>翻開一顆棋，或走一顆自己的棋。第一個翻棋的人，翻到的顏色就是自己的。</dd>
       <dt><span class="tag">大小</span></dt><dd>帥 ＞ 仕 ＞ 相 ＞ 俥 ＞ 傌 ＞ 炮 ＞ 兵。大吃小、同級互吃；兵可吃帥，帥不能吃兵。只能吃翻開的棋。</dd>
       <dt><span class="tag">俥</span></dt><dd>跟其他棋一樣一次走一格，只能吃緊鄰的棋。</dd>
-      <dt><span class="tag">炮</span></dt><dd>隔一顆棋跳吃，任何棋都能吃。同方向還能再跳就可連吃，也可停止。</dd>
+      <dt><span class="tag">炮</span></dt><dd>隔一顆棋跳吃，任何棋都能吃。吃完後沿同一條直線、往前或回頭還能再跳，就可以連吃（來回不限次數，不能轉彎），也可停止。</dd>
+      <dt><span class="tag">連吃</span></dt><dd>
+        <label class="switch"><input type="checkbox" id="optReverse" checked> 允許回頭（反方向）連吃</label>
+        <div class="hint" id="optHint">取消勾選＝只能同方向連吃。設定會記住，從下一局開始生效。</div>
+      </dd>
       <dt><span class="tag">勝負</span></dt><dd>吃光對方者勝；輪到時無棋可走者負；連續 50 步無人吃子為和局。</dd>
       <dt><span class="tag">立體</span></dt><dd>拖曳旋轉視角，連點兩下回到原位。</dd>
     </dl>

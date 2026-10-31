@@ -394,7 +394,7 @@ var DanqiGame = (function () {
         let first = o.first || 'human';
         if (first === 'random') first = Math.random() < 0.5 ? 'human' : 'ai';
         g.human = g.mode === 'ai' && first === 'ai' ? 1 : 0;
-        g.state = o.state || E.newGame();
+        g.state = o.state || E.newGame(undefined, o.rules);
         g.history = []; g.selected = null; g.thinking = false; g.chainN = 0;
         mountRenderer(g.is3D); // 每局重建棋盤（會自動 render）
         S.play('start');

@@ -78,24 +78,46 @@ var DanqiEngine = (function () {
     return -1;
   }
 
+  // 連吃下一跳可以走的方向：同方向；規則允許時再加反方向（回頭）。永遠不能轉 90 度
+  // DIRS 的順序是 上、下、左、右，所以 d ^ 1 就是反方向
+  function chainDirs(d, rules) {
+    return rules && rules.chainReverse === false ? [d] : [d, d ^ 1];
+  }
+
+  // 電腦用：把一顆炮從 cur 出發的所有連吃走法都列出來。
+  // 回頭跳會經過剛空出來的格子，所以一邊跳一邊真的改盤面，列完再還原
+  function genChains(cells, from0, cur, d, color, seq, out, rules) {
+    for (const nd of chainDirs(d, rules)) {
+      const tg = cannonTarget(cells, cur, nd, color);
+      if (tg < 0) continue;
+      const piece = cells[cur], victim = cells[tg];
+      cells[tg] = piece; cells[cur] = EMPTY;
+      seq.push(tg);
+      out.push({ from: from0, to: tg, seq: seq.slice() });
+      genChains(cells, from0, tg, nd, color, seq, out, rules);
+      seq.pop();
+      cells[cur] = piece; cells[tg] = victim;
+    }
+  }
+
   // 產生某一格棋子的走法。move = { from, to, seq }，seq 為吃子格的順序（null 表示不吃子）
-  // fullChain = true 時，炮連吃的每一種長度都列成一個走法（給電腦用）
-  function genPieceMoves(cells, sq, out, fullChain) {
+  // fullChain = true 時，炮連吃的每一種走法都列成一個走法（給電腦用）；rules 決定連吃能不能回頭
+  function genPieceMoves(cells, sq, out, fullChain, rules) {
     const code = cells[sq], color = colorOf(code), t = typeOf(code);
     for (let d = 0; d < 4; d++) {
       const n = STEP[sq][d];
       if (t === CANNON) {
         if (n >= 0 && cells[n] === EMPTY) out.push({ from: sq, to: n, seq: null });
-        let cur = sq;
-        const seq = [];
-        for (;;) {
-          const tg = cannonTarget(cells, cur, d, color);
-          if (tg < 0) break;
-          seq.push(tg);
-          out.push({ from: sq, to: tg, seq: seq.slice() });
-          if (!fullChain) break;
-          cur = tg;
-        }
+        const tg = cannonTarget(cells, sq, d, color);
+        if (tg < 0) continue;
+        if (!fullChain) { out.push({ from: sq, to: tg, seq: [tg] }); continue; }
+        // 第一跳方向固定為 d，之後的每一跳交給 genChains
+        const piece = cells[sq], victim = cells[tg];
+        cells[tg] = piece; cells[sq] = EMPTY;
+        const seq = [tg];
+        out.push({ from: sq, to: tg, seq: seq.slice() });
+        genChains(cells, sq, tg, d, color, seq, out, rules);
+        cells[sq] = piece; cells[tg] = victim;
       } else {
         // 炮以外（含俥）都只走一格、只吃緊鄰的棋
         if (n < 0) continue;
@@ -106,16 +128,21 @@ var DanqiEngine = (function () {
     }
   }
 
-  function genMoves(cells, color, out, fullChain) {
+  function genMoves(cells, color, out, fullChain, rules) {
     for (let sq = 0; sq < N; sq++) {
       const v = cells[sq];
-      if (isUp(v) && colorOf(v) === color) genPieceMoves(cells, sq, out, fullChain);
+      if (isUp(v) && colorOf(v) === color) genPieceMoves(cells, sq, out, fullChain, rules);
     }
     return out;
   }
 
   // ───────────── 實際對局狀態 ─────────────
   // cells：玩家看得到的盤面（蓋著的棋為 HIDDEN）；secret：蓋著的棋實際是什麼（電腦不會拿到這份資料）
+
+  // 規則選項（存在對局狀態裡，走法、電腦、悔棋讀的都是同一份）
+  // chainReverse：炮連吃可以回頭（反方向）；false 時只能同方向
+  const DEFAULT_RULES = { chainReverse: true };
+  const makeRules = r => Object.assign({}, DEFAULT_RULES, r || {});
 
   function createState(o) {
     o = o || {};
@@ -130,6 +157,7 @@ var DanqiEngine = (function () {
       playerColor: o.playerColor ? Array.from(o.playerColor) : [-1, -1],
       noCap: o.noCap || 0,
       captured: o.captured ? o.captured.map(a => Array.from(a)) : [[], []],
+      rules: makeRules(o.rules),
       pendingChain: null,
       lastMove: null,
       result: null,
@@ -137,7 +165,7 @@ var DanqiEngine = (function () {
     };
   }
 
-  function newGame(rand) {
+  function newGame(rand, rules) {
     rand = rand || Math.random;
     const codes = [];
     for (let c = 0; c < 2; c++) for (let t = 0; t < 7; t++) for (let k = 0; k < COUNT[t]; k++) codes.push(c * 7 + t);
@@ -145,7 +173,7 @@ var DanqiEngine = (function () {
       const j = Math.floor(rand() * (i + 1));
       const tmp = codes[i]; codes[i] = codes[j]; codes[j] = tmp;
     }
-    return createState({ secret: codes });
+    return createState({ secret: codes, rules });
   }
 
   const cloneState = s => JSON.parse(JSON.stringify(s));
@@ -155,8 +183,10 @@ var DanqiEngine = (function () {
     const color = s.playerColor[s.toMove];
     if (s.pendingChain) {
       const acts = [];
-      const t = cannonTarget(s.cells, s.pendingChain.sq, s.pendingChain.dir, color);
-      if (t >= 0) acts.push({ type: 'cap', from: s.pendingChain.sq, to: t });
+      for (const d of chainDirs(s.pendingChain.dir, s.rules)) {
+        const t = cannonTarget(s.cells, s.pendingChain.sq, d, color);
+        if (t >= 0) acts.push({ type: 'cap', from: s.pendingChain.sq, to: t });
+      }
       acts.push({ type: 'stop' });
       return acts;
     }
@@ -238,7 +268,7 @@ var DanqiEngine = (function () {
       n.lastMove = { type: 'cap', from: startFrom, to: a.to, code: victim };
       if (typeOf(attacker) === CANNON) {
         const d = dirBetween(a.from, a.to);
-        if (cannonTarget(n.cells, a.to, d, color) >= 0) {
+        if (chainDirs(d, n.rules).some(nd => cannonTarget(n.cells, a.to, nd, color) >= 0)) {
           n.pendingChain = { sq: a.to, dir: d };
           return n;
         }
@@ -265,7 +295,7 @@ var DanqiEngine = (function () {
     if (pool.some(k => k < 0) || total !== hidden) {
       throw new Error('盤面資料不一致：未翻棋子池 ' + JSON.stringify(pool) + '，蓋著的格數 ' + hidden);
     }
-    return { cells: s.cells.slice(), pool, color: s.playerColor[s.toMove], noCap: s.noCap };
+    return { cells: s.cells.slice(), pool, color: s.playerColor[s.toMove], noCap: s.noCap, rules: makeRules(s.rules) };
   }
 
   // ───────────── 電腦 AI ─────────────
@@ -274,6 +304,7 @@ var DanqiEngine = (function () {
   function createSearcher(info) {
     const cells = Int8Array.from(info.cells);
     const pool = Int8Array.from(info.pool);
+    const rules = makeRules(info.rules);
     let poolTotal = 0, hiddenCount = 0, noCap = info.noCap, nodes = 0;
     const mat = [0, 0], cnt = [0, 0];
     for (let sq = 0; sq < N; sq++) {
@@ -330,7 +361,7 @@ var DanqiEngine = (function () {
     // 這一方現在能吃到的最大價值
     function maxGain(color) {
       let best = 0;
-      for (const m of genMoves(cells, color, [], true)) if (m.seq) { const v = capValue(m); if (v > best) best = v; }
+      for (const m of genMoves(cells, color, [], true, rules)) if (m.seq) { const v = capValue(m); if (v > best) best = v; }
       return best;
     }
 
@@ -407,7 +438,7 @@ var DanqiEngine = (function () {
       if (cnt[opp] === 0) return WIN - ply;
       if (noCap >= DRAW_LIMIT) return 0;
       if (depth <= 0) return evaluate(color);
-      const moves = genMoves(cells, color, [], true);
+      const moves = genMoves(cells, color, [], true, rules);
       if (moves.length === 0 && hiddenCount === 0) return -WIN + ply;
       orderMoves(moves);
       let best = -INF, i = 0;
@@ -439,7 +470,7 @@ var DanqiEngine = (function () {
     }
 
     S.rootMoves = function (color) {
-      const list = genMoves(cells, color, [], true);
+      const list = genMoves(cells, color, [], true, rules);
       for (let sq = 0; sq < N; sq++) if (cells[sq] === HIDDEN) list.push({ flip: sq });
       return list;
     };
@@ -524,6 +555,6 @@ var DanqiEngine = (function () {
   return {
     COLS, ROWS, N, EMPTY, HIDDEN, KING, ADV, ELE, ROOK, HORSE, CANNON, PAWN, NAMES, DRAW_LIMIT, LEVELS,
     colorOf, typeOf, nameOf, makeRng, cannonTarget,
-    createState, newGame, legalActions, applyAction, sameAction, aliveCount, buildInfo, think
+    DEFAULT_RULES, createState, newGame, legalActions, applyAction, sameAction, aliveCount, buildInfo, think
   };
 })();

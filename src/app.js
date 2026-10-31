@@ -36,7 +36,7 @@
     $('pBot').innerHTML = plHTML(v.players[v.bottom], v);
     $('status').textContent = v.status;
     $('noCap').innerHTML = v.nearDraw ? '<span class="near">未吃子 ' + v.noCap + ' / ' + v.drawLimit + '（將和局）</span>' : '未吃子 ' + v.noCap + ' / ' + v.drawLimit;
-    $('lvl').textContent = v.mode === 'ai' ? '電腦・' + v.levelName : '兩人對戰';
+    $('lvl').textContent = (v.mode === 'ai' ? '電腦・' + v.levelName : '兩人對戰') + '・' + ruleName(v.state.rules);
     $('bStop').hidden = !v.chainPending;
     $('bUndo').disabled = $('bEndUndo').disabled = !v.canUndo;
   }
@@ -45,8 +45,11 @@
     onResult: v => { $('eT').textContent = v.result.title; $('eWhy').textContent = v.result.reason; $('ovEnd').hidden = false; }
   });
   const pick = n => document.querySelector('input[name="' + n + '"]:checked').value;
+  // 規則選項：從規則視窗的開關讀，開局時帶進對局（下到一半改開關不影響這一局）
+  const currentRules = () => ({ chainReverse: $('optReverse').checked });
+  const ruleName = r => (r.chainReverse ? '連吃可回頭' : '連吃只能同方向');
   function start() {
-    lastOpts = { mode: pick('mode'), level: pick('level'), first: pick('first') };
+    lastOpts = { mode: pick('mode'), level: pick('level'), first: pick('first'), rules: currentRules() };
     $('menu').hidden = true; $('game').hidden = false; $('ovEnd').hidden = true;
     game.newGame(lastOpts);
   }
@@ -70,11 +73,21 @@
   $('bStop').onclick = () => game.stopChain();
   $('bEndUndo').onclick = () => { $('ovEnd').hidden = true; game.undo(); };
   $('bEndMenu').onclick = toMenu;
-  $('bEndAgain').onclick = () => { $('ovEnd').hidden = true; game.newGame(lastOpts); };
+  $('bEndAgain').onclick = () => { $('ovEnd').hidden = true; lastOpts.rules = currentRules(); game.newGame(lastOpts); };
   $('b2d').onclick = () => set3D(false);
   $('b3d').onclick = () => set3D(true);
   $('bSet').onclick = () => { $('ovSet').hidden = false; };
-  $('bRules').onclick = () => { $('ovRules').hidden = false; };
+  // 對局中改了開關：提醒這一局還是照開局時的規則
+  function syncRuleHint() {
+    const v = game.view(), now = currentRules(), hint = $('optHint');
+    const differs = v && !v.result && v.state.rules.chainReverse !== now.chainReverse;
+    hint.classList.toggle('on', !!differs);
+    hint.textContent = differs
+      ? '這一局仍是「' + ruleName(v.state.rules) + '」，下一局起改為「' + ruleName(now) + '」。'
+      : '取消勾選＝只能同方向連吃。設定會記住，從下一局開始生效。';
+  }
+  $('optReverse').onchange = () => { pref.set('chainReverse', $('optReverse').checked ? '1' : '0'); syncRuleHint(); };
+  $('bRules').onclick = () => { syncRuleHint(); $('ovRules').hidden = false; };
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => { b.closest('.ov').hidden = true; });
   $('bSound').onclick = () => { DanqiSound.setEnabled(!DanqiSound.isEnabled()); pref.set('sound', DanqiSound.isEnabled() ? '1' : '0'); syncSound(); DanqiSound.play('select'); };
   $('vol').oninput = e => DanqiSound.setVolume(e.target.value / 100);
@@ -84,6 +97,7 @@
   DanqiSound.setEnabled(pref.get('sound', '1') === '1');
   DanqiSound.setVolume(Number(pref.get('volume', '80')) / 100);
   syncSound();
+  $('optReverse').checked = pref.get('chainReverse', '1') === '1';
   if (pref.get('3d', '0') === '1') set3D(true);
   // 網址加 ?debug 時開放給自動測試操作
   if (/[?&]debug\b/.test(location.search)) window.__danqi = game;
