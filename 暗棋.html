@@ -116,7 +116,8 @@
   .verdict { font-family: var(--serif); font-weight: 900; font-size: clamp(44px, 11vw, 76px); margin: 10px 0 6px; }
   .card input[type=range] { width: 200px; accent-color: var(--red); }
   .switch { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
-  .switch input { width: 20px; height: 20px; accent-color: var(--red); }
+  .switch input { width: 20px; height: 20px; accent-color: var(--red); flex: none; }
+  .choices { display: grid; gap: 8px; }
   .card .hint { font-size: 13px; color: var(--muted); margin-top: 2px; }
   .card .hint.on { color: var(--red); font-weight: 700; }
   #ovIos dl { grid-template-columns: 30px 1fr; }
@@ -213,10 +214,14 @@
       <dt><span class="tag">每回合</span></dt><dd>翻開一顆棋，或走一顆自己的棋。第一個翻棋的人，翻到的顏色就是自己的。</dd>
       <dt><span class="tag">大小</span></dt><dd>帥 ＞ 仕 ＞ 相 ＞ 俥 ＞ 傌 ＞ 炮 ＞ 兵。大吃小、同級互吃；兵可吃帥，帥不能吃兵。只能吃翻開的棋。</dd>
       <dt><span class="tag">俥</span></dt><dd>跟其他棋一樣一次走一格，只能吃緊鄰的棋。</dd>
-      <dt><span class="tag">炮</span></dt><dd>隔一顆棋跳吃，任何棋都能吃。吃完後沿同一條直線、往前或回頭還能再跳，就可以連吃（來回不限次數，不能轉彎），也可停止。</dd>
+      <dt><span class="tag">炮</span></dt><dd>隔一顆棋跳吃，任何棋都能吃。吃完後能不能接著再跳吃（連吃），依下面的設定；連吃永遠不能轉彎，也可以隨時停止。</dd>
       <dt><span class="tag">連吃</span></dt><dd>
-        <label class="switch"><input type="checkbox" id="optReverse" checked> 允許回頭（反方向）連吃</label>
-        <div class="hint" id="optHint">取消勾選＝只能同方向連吃。設定會記住，從下一局開始生效。</div>
+        <div class="choices" role="radiogroup" aria-label="炮連吃規則">
+          <label class="switch"><input type="radio" name="chain" value="same"> 允許連吃（僅同方向）</label>
+          <label class="switch"><input type="radio" name="chain" value="both" checked> 允許連吃（同方向、反方向皆可）</label>
+          <label class="switch"><input type="radio" name="chain" value="none"> 禁止連吃</label>
+        </div>
+        <div class="hint" id="optHint">設定會記住，從下一局開始生效。</div>
       </dd>
       <dt><span class="tag">勝負</span></dt><dd>吃光對方者勝；輪到時無棋可走者負；連續 50 步無人吃子為和局。</dd>
       <dt><span class="tag">立體</span></dt><dd>拖曳旋轉視角，連點兩下回到原位。</dd>
@@ -350,10 +355,13 @@ var DanqiEngine = (function () {
     return -1;
   }
 
-  // 連吃下一跳可以走的方向：同方向；規則允許時再加反方向（回頭）。永遠不能轉 90 度
+  // 連吃下一跳可以走的方向（依規則 chain）：none＝不能連吃、same＝只能同方向、both＝同方向或回頭。永遠不能轉 90 度
   // DIRS 的順序是 上、下、左、右，所以 d ^ 1 就是反方向
   function chainDirs(d, rules) {
-    return rules && rules.chainReverse === false ? [d] : [d, d ^ 1];
+    const mode = rules && rules.chain;
+    if (mode === 'none') return [];
+    if (mode === 'same') return [d];
+    return [d, d ^ 1];
   }
 
   // 電腦用：把一顆炮從 cur 出發的所有連吃走法都列出來。
@@ -412,9 +420,18 @@ var DanqiEngine = (function () {
   // cells：玩家看得到的盤面（蓋著的棋為 HIDDEN）；secret：蓋著的棋實際是什麼（電腦不會拿到這份資料）
 
   // 規則選項（存在對局狀態裡，走法、電腦、悔棋讀的都是同一份）
-  // chainReverse：炮連吃可以回頭（反方向）；false 時只能同方向
-  const DEFAULT_RULES = { chainReverse: true };
-  const makeRules = r => Object.assign({}, DEFAULT_RULES, r || {});
+  // chain：炮連吃方式。'both'＝同方向、反方向皆可（預設）、'same'＝僅同方向、'none'＝禁止連吃
+  const CHAIN_MODES = ['both', 'same', 'none'];
+  const DEFAULT_RULES = { chain: 'both' };
+  function makeRules(r) {
+    r = r || {};
+    // 相容舊版設定：chainReverse true/false
+    let chain = r.chain;
+    if (chain === undefined && r.chainReverse !== undefined) chain = r.chainReverse ? 'both' : 'same';
+    if (chain === undefined) chain = DEFAULT_RULES.chain;
+    if (CHAIN_MODES.indexOf(chain) < 0) throw new Error('不認得的連吃規則：' + chain + '（只接受 ' + CHAIN_MODES.join('、') + '）');
+    return { chain };
+  }
 
   function createState(o) {
     o = o || {};
@@ -827,7 +844,7 @@ var DanqiEngine = (function () {
   return {
     COLS, ROWS, N, EMPTY, HIDDEN, KING, ADV, ELE, ROOK, HORSE, CANNON, PAWN, NAMES, DRAW_LIMIT, LEVELS,
     colorOf, typeOf, nameOf, makeRng, cannonTarget,
-    DEFAULT_RULES, createState, newGame, legalActions, applyAction, sameAction, aliveCount, buildInfo, think
+    DEFAULT_RULES, CHAIN_MODES, createState, newGame, legalActions, applyAction, sameAction, aliveCount, buildInfo, think
   };
 })();
 </script>
@@ -2013,8 +2030,9 @@ var DanqiGame = (function () {
   });
   const pick = n => document.querySelector('input[name="' + n + '"]:checked').value;
   // 規則選項：從規則視窗的開關讀，開局時帶進對局（下到一半改開關不影響這一局）
-  const currentRules = () => ({ chainReverse: $('optReverse').checked });
-  const ruleName = r => (r.chainReverse ? '連吃可回頭' : '連吃只能同方向');
+  const currentRules = () => ({ chain: document.querySelector('input[name="chain"]:checked').value });
+  const CHAIN_NAME = { both: '連吃可回頭', same: '連吃僅同方向', none: '禁止連吃' };
+  const ruleName = r => CHAIN_NAME[r.chain];
   function start() {
     lastOpts = { mode: pick('mode'), level: pick('level'), first: pick('first'), rules: currentRules() };
     $('menu').hidden = true; $('game').hidden = false; $('ovEnd').hidden = true;
@@ -2047,13 +2065,13 @@ var DanqiGame = (function () {
   // 對局中改了開關：提醒這一局還是照開局時的規則
   function syncRuleHint() {
     const v = game.view(), now = currentRules(), hint = $('optHint');
-    const differs = v && !v.result && v.state.rules.chainReverse !== now.chainReverse;
+    const differs = v && !v.result && v.state.rules.chain !== now.chain;
     hint.classList.toggle('on', !!differs);
     hint.textContent = differs
       ? '這一局仍是「' + ruleName(v.state.rules) + '」，下一局起改為「' + ruleName(now) + '」。'
-      : '取消勾選＝只能同方向連吃。設定會記住，從下一局開始生效。';
+      : '設定會記住，從下一局開始生效。';
   }
-  $('optReverse').onchange = () => { pref.set('chainReverse', $('optReverse').checked ? '1' : '0'); syncRuleHint(); };
+  document.querySelectorAll('input[name="chain"]').forEach(r => r.addEventListener('change', () => { pref.set('chain', currentRules().chain); syncRuleHint(); }));
   $('bRules').onclick = () => { syncRuleHint(); $('ovRules').hidden = false; };
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => { b.closest('.ov').hidden = true; });
   $('bSound').onclick = () => { DanqiSound.setEnabled(!DanqiSound.isEnabled()); pref.set('sound', DanqiSound.isEnabled() ? '1' : '0'); syncSound(); DanqiSound.play('select'); };
@@ -2115,7 +2133,12 @@ var DanqiGame = (function () {
   DanqiSound.setEnabled(pref.get('sound', '1') === '1');
   DanqiSound.setVolume(Number(pref.get('volume', '80')) / 100);
   syncSound();
-  $('optReverse').checked = pref.get('chainReverse', '1') === '1';
+  // 連吃設定；舊版只存了「可不可以回頭」（chainReverse），沒有新設定時沿用它
+  let savedChain = pref.get('chain', null);
+  if (!savedChain) savedChain = pref.get('chainReverse', '1') === '0' ? 'same' : 'both';
+  const chainInput = document.querySelector('input[name="chain"][value="' + savedChain + '"]');
+  if (chainInput) chainInput.checked = true;
+  else console.warn('[暗棋] 存檔裡的連吃設定看不懂，改用預設：', savedChain);
   if (pref.get('3d', '0') === '1') set3D(true);
   // 網址加 ?debug 時開放給自動測試操作
   if (/[?&]debug\b/.test(location.search)) window.__danqi = game;

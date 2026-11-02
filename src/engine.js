@@ -78,10 +78,13 @@ var DanqiEngine = (function () {
     return -1;
   }
 
-  // 連吃下一跳可以走的方向：同方向；規則允許時再加反方向（回頭）。永遠不能轉 90 度
+  // 連吃下一跳可以走的方向（依規則 chain）：none＝不能連吃、same＝只能同方向、both＝同方向或回頭。永遠不能轉 90 度
   // DIRS 的順序是 上、下、左、右，所以 d ^ 1 就是反方向
   function chainDirs(d, rules) {
-    return rules && rules.chainReverse === false ? [d] : [d, d ^ 1];
+    const mode = rules && rules.chain;
+    if (mode === 'none') return [];
+    if (mode === 'same') return [d];
+    return [d, d ^ 1];
   }
 
   // 電腦用：把一顆炮從 cur 出發的所有連吃走法都列出來。
@@ -140,9 +143,18 @@ var DanqiEngine = (function () {
   // cells：玩家看得到的盤面（蓋著的棋為 HIDDEN）；secret：蓋著的棋實際是什麼（電腦不會拿到這份資料）
 
   // 規則選項（存在對局狀態裡，走法、電腦、悔棋讀的都是同一份）
-  // chainReverse：炮連吃可以回頭（反方向）；false 時只能同方向
-  const DEFAULT_RULES = { chainReverse: true };
-  const makeRules = r => Object.assign({}, DEFAULT_RULES, r || {});
+  // chain：炮連吃方式。'both'＝同方向、反方向皆可（預設）、'same'＝僅同方向、'none'＝禁止連吃
+  const CHAIN_MODES = ['both', 'same', 'none'];
+  const DEFAULT_RULES = { chain: 'both' };
+  function makeRules(r) {
+    r = r || {};
+    // 相容舊版設定：chainReverse true/false
+    let chain = r.chain;
+    if (chain === undefined && r.chainReverse !== undefined) chain = r.chainReverse ? 'both' : 'same';
+    if (chain === undefined) chain = DEFAULT_RULES.chain;
+    if (CHAIN_MODES.indexOf(chain) < 0) throw new Error('不認得的連吃規則：' + chain + '（只接受 ' + CHAIN_MODES.join('、') + '）');
+    return { chain };
+  }
 
   function createState(o) {
     o = o || {};
@@ -555,6 +567,6 @@ var DanqiEngine = (function () {
   return {
     COLS, ROWS, N, EMPTY, HIDDEN, KING, ADV, ELE, ROOK, HORSE, CANNON, PAWN, NAMES, DRAW_LIMIT, LEVELS,
     colorOf, typeOf, nameOf, makeRng, cannonTarget,
-    DEFAULT_RULES, createState, newGame, legalActions, applyAction, sameAction, aliveCount, buildInfo, think
+    DEFAULT_RULES, CHAIN_MODES, createState, newGame, legalActions, applyAction, sameAction, aliveCount, buildInfo, think
   };
 })();

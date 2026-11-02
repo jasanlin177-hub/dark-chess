@@ -18,7 +18,8 @@ function pos(pieces, opts = {}) {
 }
 // 殘局測試盤面湊不滿 32 顆，直接組電腦資料（沒有蓋著的棋，未翻池為空）
 const endInfo = s => ({ cells: s.cells.slice(), pool: new Array(14).fill(0), color: s.playerColor[s.toMove], noCap: s.noCap, rules: s.rules });
-const SAME_ONLY = { chainReverse: false };
+const SAME_ONLY = { chain: 'same' };
+const NO_CHAIN = { chain: 'none' };
 const targetsOf = (s, from) => E.legalActions(s).filter(a => a.from === from).map(a => a.type + ':' + a.to).sort();
 
 let pass = 0, fail = 0;
@@ -80,7 +81,7 @@ test('炮連吃：吃完可選擇繼續或停止，不能轉 90 度', () => {
 const reversePos = rules => pos([[0, 0, black(K)], [0, 2, red(C)], [0, 3, ['H', red(P)]], [0, 4, black(A)], [3, 7, black(P)], [3, 0, red(K)]], { rules });
 test('預設規則：炮連吃可以回頭（反方向）', () => {
   const s0 = reversePos();
-  assert.strictEqual(s0.rules.chainReverse, true, '預設應允許回頭');
+  assert.strictEqual(s0.rules.chain, 'both', '預設應為同方向、反方向皆可');
   const s = E.applyAction(s0, { type: 'cap', from: sq(0, 2), to: sq(0, 4) });
   assert.ok(s.pendingChain, '回頭還能吃，應進入連吃狀態');
   const acts = E.legalActions(s).map(a => a.type + (a.to !== undefined ? ':' + a.to : '')).sort();
@@ -118,7 +119,23 @@ test('電腦也會照規則走來回連吃；改成只能同方向時就不會',
   for (const a of r.actions) s = E.applyAction(s, a);   // 每一跳都要被實際規則接受
   const r2 = E.think(endInfo(pingPongPos(SAME_ONLY)), { level: 'hard', seed: 1, timeMs: 600 });
   assert.ok(r2.actions.length <= 1, '只能同方向時最多吃一顆，實際：' + JSON.stringify(r2.actions));
-  assert.ok(E.buildInfo(E.newGame(E.makeRng(1), SAME_ONLY)).rules.chainReverse === false, '規則選項要傳給電腦');
+  assert.strictEqual(E.buildInfo(E.newGame(E.makeRng(1), SAME_ONLY)).rules.chain, 'same', '規則選項要傳給電腦');
+});
+test('禁止連吃：吃一顆就結束回合，同方向還能吃也不行', () => {
+  // 同一個盤面在預設規則下會進入連吃（見上面的連吃測試）
+  const s0 = pos([[0, 0, red(C)], [0, 1, ['H', red(P)]], [0, 2, black(P)], [0, 3, ['H', red(P)]], [0, 4, black(K)], [3, 7, black(P)]], { rules: NO_CHAIN });
+  const s = E.applyAction(s0, { type: 'cap', from: sq(0, 0), to: sq(0, 2) });
+  assert.strictEqual(s.pendingChain, null, '不該進入連吃');
+  assert.strictEqual(s.toMove, 1, '吃完就換對方');
+  const r = E.think(endInfo(pingPongPos(NO_CHAIN)), { level: 'hard', seed: 1, timeMs: 600 });
+  assert.ok(r.actions.length <= 1, '電腦在禁止連吃時最多吃一顆，實際：' + JSON.stringify(r.actions));
+  let t = pingPongPos(NO_CHAIN);
+  for (const a of r.actions) t = E.applyAction(t, a);
+});
+test('規則選項：舊版設定相容、亂填會報錯', () => {
+  assert.strictEqual(E.createState({ rules: { chainReverse: false } }).rules.chain, 'same', '舊版「不可回頭」對應到僅同方向');
+  assert.strictEqual(E.createState({ rules: { chainReverse: true } }).rules.chain, 'both');
+  assert.throws(() => E.createState({ rules: { chain: 'zigzag' } }), /不認得的連吃規則/);
 });
 test('炮不吃子時只能走一格', () => {
   const s = pos([[1, 3, red(C)], [3, 7, black(P)]]);

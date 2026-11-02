@@ -1,6 +1,6 @@
 // 暗棋的背景程式（service worker）：讓安裝後的遊戲沒網路也能開，並在有新版時通知畫面。
 // __VERSION__ 與 __FILES__ 由 tools/build.js 建置時填入；版本＝暗棋.html 內容的雜湊，內容一變就會觸發更新
-const VERSION = "d48a27b1c1c5";
+const VERSION = "3667d3f54620";
 const CACHE = 'danqi-' + VERSION;
 const FONT_CACHE = 'danqi-fonts';
 const FILES = [
